@@ -1,0 +1,254 @@
+/* ================================================================================
+	#Reset
+================================================================================ */
+* { padding: 0; margin: 0; outline: 0; }
+
+/* ================================================================================
+	#Base
+================================================================================ */
+html,
+body { height: 100%; }
+
+body { background: #eeeff0; font-family: 'Proxima Nova Cond', sans-serif; font-size: 22px; line-height: 1.2; color: #444; }
+
+a { color: #000; text-decoration: none; cursor: pointer; }
+a:hover { text-decoration: underline; }
+
+img { border: 0; vertical-align: middle; }
+
+ol,
+ul { list-style-position: inside; }
+
+input { border: 0; }
+
+h2,
+h3,
+h4,
+h5,
+h6 { font-weight: normal; }
+
+h4,
+h5 { padding-bottom: 8px; }
+
+h2 { font-size: 40px; }
+h3 { font-size: 30px; }
+h4 { font-family: 'Proxima Nova Bold', sans-serif; font-size: 25px; color: #e57d20; }
+h5 { font-family: 'Proxima Nova Cond', sans-serif; font-size: 22px; }
+h6 { font-size: 18px; }
+
+p { padding-bottom: 22px; }
+
+/* ================================================================================
+	#Helpers
+================================================================================ */
+.alignleft { float: left; }
+.alignright { float: right; }
+
+.clearfix:before,
+.clearfix:after { display: table; content: ''; }
+.clearfix:after { clear: both; }
+.clearfix { *zoom: 1; }
+
+/* ================================================================================
+	#Containers
+================================================================================ */
+.container { padding: 20px 16px 20px 20px; border-width: 1px; border-style: solid; border-color: #e6e6e8 #cbcbcd #cbcbcd #e6e6e8; border-radius: 5px; margin: 0 0 72px 0; box-shadow: 0 0 2px 1px #e6e6e8 inset; box-shadow: 1px 1px 2px 0 #cbcbcd; }
+.shell { width: 942px; margin: 0 auto; }
+
+/* ================================================================================
+	#Buttons
+================================================================================ */
+.btn { display: inline-block; font-family: 'Proxima Nova Light', sans-serif; text-align: center; cursor: pointer; }
+.choice .btn { width: 160px; height: 94px; padding-top: 16px; margin: 0 22px; }
+.btn:hover { background: #e57d1f; text-decoration: none; }
+
+.btn-yellow { width: 200px; height: 58px; line-height: 60px; background: #fccd0e; }
+.btn-yellow:hover { background: #e57d1f; }
+
+.btn-sign { width: 120px; height: 58px; margin-left: 10px; line-height: 60px; background: #E57D1F; color: #fff; }
+.btn-sign:hover { background: #3398da; }
+.btn-big { width: 408px; height: 58px; line-height: 58px; }
+
+.btn-small { width: 109px; height: 58px; }
+
+.btn-blue { background: #3398da;}
+.btn-blue:hover { background: #fccd0e; }
+
+.btn-green,
+.btn-green:hover { background: #2dcb71; }
+
+.btn-red,
+.btn-red:hover { background: #e74b3b; }
+
+.btn-disabled:hover { background: #fccd0e; cursor: default; }
+
+/* ================================================================================
+	#Icons
+================================================================================ */
+[class^="icon-"] { display: inline-block; background-image: url(images/sprite.png); font-size: 0; line-height: 0; vertical-align: middle; }
+.socials [class^="icon-"] { width: 75px; height: 70px; }
+.socials [class^="icon-"]:hover { opacity: .75; filter:alpha(opacity=75); }
+
+.icon-cross,
+.icon-tick { width: 40px; height: 35px; }
+
+.icon-tick { background: url(images/tick.png) 0 0 no-repeat; }
+.icon-cross { background: url(images/cross.png) 0 0 no-repeat; }
+
+.icon-arrow,
+.icon-arrow-white { width: 11px; height: 21px; margin: -3px 0 0 5px; }
+
+.icon-arrow { background-position: 0 -31px; }
+.icon-arrow-white { background-position: 0 0; }
+
+.icon-facebook { background-position: 0 -228px; }
+.icon-googleplus { background-position: 0 -308px; }
+.icon-linkedin { background-position: 0 -388px; }
+.icon-dribble { background-position: 0 -148px; }
+
+/* ================================================================================
+	#Header
+================================================================================ */
+.header { padding: 46px 0 49px; }
+.logo { width: 348px; margin: 0 auto; }
+.logo a { overflow: hidden; display: block; height: 54px; background: url(images/sprite.png) 0 -524px no-repeat; text-indent: 100%; white-space: nowrap; }
+
+/* ================================================================================
+	#Main
+================================================================================ */
+.intro { padding: 45px 0 25px; border-width: 1px; border-style: solid; border-color: #e6e6e8 #cbcbcd #cbcbcd #e6e6e8; border-radius: 5px; background: #f6f6f8; box-shadow: 0 0 2px 1px #e6e6e8 inset; box-shadow: 1px 1px 2px 0 #cbcbcd; text-align: center; }
+.intro span { font-family: 'Proxima Nova Bold', sans-serif; font-size: 25px; color: #e57d1f; }
+.intro p { padding-bottom: 22px; letter-spacing: 1px; }
+
+.highlight { padding: 16px 60px 0; margin-bottom: 22px; background: #3398da; font-family: 'Proxima Nova Italic', sans-serif; line-height: 1.47; color: #fff; letter-spacing: .5px; }
+.highlight span { font-family: 'Proxima Nova Bold Italic', sans-serif; font-size: 22px; color: #fff; }
+.highlight p { padding-bottom: 19px; }
+
+.time { height: 100px; margin: -8px 0 10px; background: url(images/clock.png) center center no-repeat; }
+.time span { display: inline-block; padding-top: 32px; letter-spacing: 0; }
+
+.main .btns { padding-bottom: 15px; }
+
+.checkbox label { font-family: 'Segoe UI', sans-serif; font-size: 13px; color: #333; cursor: pointer; }
+.checkbox input { display: inline-block; vertical-align: middle; }
+
+/* ================================================================================
+	#Footer
+================================================================================ */
+.footer { text-align: center; }
+.footer p { padding-bottom: 10px; font-family: 'Segoe UI', sans-serif; font-size: 16px; color: #333; }
+.footer a { color: #333; }
+
+/* ================================================================================
+	#Popups
+================================================================================ */
+.popup { overflow: hidden; width: 700px; min-height: 520px; background: #fff; }
+.popup .logo { overflow: hidden; display: block; width: 304px; height: 46px; margin: 0 auto; background: url(images/sprite.png) 0 -468px no-repeat; text-indent: 100%; white-space: nowrap; }
+.popup-head { padding: 17px 0 13px; }
+.popup-body { padding: 24px 0 47px; border-width: 1px 0; border-style: solid; border-color: #ccc; text-align: center;}
+
+.page-holder { display: table; height: 100%; width: 100%; }
+.v-page-holder { display: table-cell; vertical-align: middle; }
+.page-holder .popup { margin: 0 auto; position: relative; }
+
+.question { padding-bottom: 26px; }
+.question p { letter-spacing: 1px; }
+
+.progress-bar { position: relative; width: 600px; height: 23px; border-radius: 12px; margin: 0 auto 50px; background: #eeeff0; }
+.progress-bar .steps { position: absolute; top: 6px; left: 8px; z-index: 5; }
+.progress-bar span { float: left; width: 12px; height: 12px; border-radius: 50%; background: #bbb; }
+.progress-bar span ~ span { margin-left: 40px; }
+
+.progress-bar-inner { position: absolute; top: 0; left: 0; width: 600px; height: 23px; border-radius: 12px 0 0 12px; background: #3398da; }
+.progress-bar-inner[style*="100%"] { border-radius: 12px; }
+
+/* ================================================================================
+	#Popup Agree-Disagree
+================================================================================ */
+.popup-agree .question { padding-bottom: 1px; }
+.popup-agree .popup-body { padding: 24px 0 85px; }
+.choice { overflow: hidden; width: 600px; padding-top: 57px; margin: 0 auto; }
+
+.disagree,
+.agree { float: left; width: 140px; padding-top: 15px; font-family: 'Proxima Nova Bold', sans-serif; font-size: 15px; line-height: 1; text-transform: uppercase; }
+
+.disagree p,
+.agree p { padding-bottom: 2px; }
+
+.disagree { color: #e64b3a; }
+.disagree span { display: inline-block; width: 90px; padding-right: 6px; vertical-align: middle; text-align: right; }
+.agree {  color: #2ccb71; }
+.agree span { display: inline-block; width: 90px; vertical-align: middle; text-align: left; }
+
+.popup-agree .radios { float: left; }
+.popup-agree .radio { float: left; width: 60px; height: 60px; font-size: 18px; color: #fff; }
+.popup-agree .radio-red { background: #e74b3b; }
+.popup-agree .radio-yellow { background: #ffb923; }
+.popup-agree .radio-green { background: #2dcb71; }
+.popup-agree .radio ~ .radio { margin-left: 1px; }
+.popup-agree .radio label { display: block; padding: 6px 0 10px; font-family: 'Segoe Black', sans-serif; cursor: pointer; }
+
+/* ================================================================================
+	#Popup True-False
+================================================================================ */
+.popup-true { min-height: 520px; }
+.popup-true .question { padding-bottom: 6px; }
+.popup-true .popup-body { padding-bottom: 55px; }
+.popup-true .choice { padding-top: 11px; }
+.popup-true .btns span { font-size: 25px; }
+.popup-true .progress-bar { margin-bottom: 40px; }
+
+.popup-true .radios { text-align: center; }
+.popup-true .radio { display: inline-block; margin: 0 23px; *display: inline; *zoom: 1; }
+.popup-true .radio label { display: block; padding-bottom: 5px; font-family: 'Proxima Nova Bold', sans-serif; text-transform: uppercase; }
+
+.radio-true label { color: #82dba3; }
+.radio-false label { color: #ee8f88; }
+
+.radio-true:hover label { color: #2dcb71; }
+.radio-false:hover label { color: #e74b3b; }
+
+/* ================================================================================
+	#Popup Get Started
+================================================================================ */
+.popup-start .popup-body { padding: 23px 80px 33px; font-family: 'Proxima Nova'; font-size: 17px; line-height: 1.29; }
+.popup-start .popup-body img { margin-bottom: 18px; }
+.popup-start .popup-body strong { font-family: 'Proxima Nova Bold', sans-serif; font-weight: normal; }
+.popup-start .btn-blue { width: 180px; height: 58px; font-size: 20px; color: #202020; }
+
+/* ================================================================================
+	#Popup Email
+================================================================================ */
+.popup-email .popup-body { padding-bottom: 40px; }
+.popup .btn { border: 0; font-size: 20px; color: #fff; }
+.popup .form-email { padding-bottom: 28px; }
+.popup .field { display: block; width: 288px; height: 19px; padding: 13px 12px; margin: 0 auto 28px; background: #e4e4e4; font-family: 'Proxima Nova Italic', sans-serif; font-size: 15px; color: #444; }
+.popup-email img { margin-bottom: 12px; }
+.popup-email .policy { padding-bottom: 0; font-family: 'Segoe UI', sans-serif; font-size: 14px; color: #444; }
+.popup-email .policy a { color: #3298d9; text-decoration: underline; }
+.popup-email .policy a:hover { color: #fccc0d; }
+.popup-email .socials { overflow: hidden; margin: 0 0 30px -5px; }
+.popup-email .socials a ~ a { margin-left: 32px; }
+
+.popup .copyrights { padding: 18px 25px 21px; font-family: 'Segoe UI', sans-serif; font-size: 14px; color: #444; }
+
+/* ================================================================================
+	#Sign In
+================================================================================ */
+.popup-signin { width: 800px; min-height: 470px; *min-height: 470px; }
+.popup-signin .popup-head { width: 411px; padding: 25px 0 16px 25px; font-size: 20px; }
+.popup-signin .popup-body { padding: 24px 0 5px; }
+.popup-signin .field { margin: 0 auto 22px; }
+.popup-signin .field.focus { background: #fccd0e; }
+.popup-signin .btn { margin-bottom: 15px; }
+.popup-signin .btn:hover { background: #e57d1f; }
+.reminder { font-size: 15px; color: #3f3f3f; }
+
+/* ==============================================================================
+ *  #OneAll Social Login Widget
+ * ==============================================================================*/ 
+#social_login_container{
+ display: block;
+ width: 275px;
+ margin: 0 auto;
+}

@@ -1,0 +1,388 @@
+#!/usr/bin/perl
+
+#!D:/TOWORK/bin/xampp/perl/bin/perl.exe
+
+use lib 'cgi-bin';
+use lib 'util';
+use Launchh;
+use URI::Escape;
+use Digest::MD5 qw(md5_hex);
+use Date::Calc qw( Add_Delta_DHMS Today_and_Now);
+use CGI::Session;
+my $session = new CGI::Session("driver:File", undef, {Directory=>"/tmp"});
+
+
+my $pmode = $Launchh::_query->param('pmode') if($pmode eq '');
+
+if($pmode ne  ''  && $pmode ne  'launchleader') {
+	$Launchh::HFILE = "template/empty-$pmode.html";
+}
+else{
+	$Launchh::HFILE = "empty-ll2.html";
+}
+
+my $ref = $Launchh::_query->param('ref');
+
+my $trailer_escaped = uri_escape($Launchh::_query->param('trailer'));
+my $trailto = $Launchh::_query->param('trailto');
+my $ttfull = $Launchh::_query->param('ttfull');
+my $trailfor = $Launchh::_query->param('trailfor');
+my $eId = $Launchh::_query->param('eId');
+my $cred = $Launchh::_query->param('cred');
+my $forgot_pwd = $Launchh::_query->param('forgot_pwd');
+my $pledged = $Launchh::_query->param('pledged');
+my $pledgegoal = $Launchh::_query->param('pledgegoal');
+my $anonymous = $Launchh::_query->param('anonymous');
+
+
+if($forgot_pwd == 1){
+    
+    my $username = $Launchh::_query->param('u');
+    
+    &Launchh::select_accounts("WHERE LOWER(account_username)='$username' or LOWER(account_email) = '$username'");
+    &Launchh::next_account();
+    if($Launchh::account->{'account_id'}) {
+        my $rand = rand(50000);
+        my $randomstr = md5_hex("$username" , "$rand");
+        
+        my ($year,$mon,$day,$hour,$minute,$second) = Add_Delta_DHMS(Today_and_Now(), 0,+6,0,0);
+          
+        my $expire_date = "$year-$mon-$day $hour:$minute:$second";
+
+        $Launchh::password_reset->{'password_reset_username'} = $username;
+        $Launchh::password_reset->{'password_reset_token'} = $randomstr;
+        $Launchh::password_reset->{'password_reset_taken'} = 0;
+        $Launchh::password_reset->{'password_reset_expire'} = $expire_date;   
+        my $reset_id = &Launchh::insert_password_reset();
+        $cred = "pwd_reset";
+	    send_forgot_password_email($randomstr);       
+    }    
+    
+    #my $cgi = new CGI;
+    #print $cgi->header(-location=>'dashboard?fpwd=success');
+    #print $cgi->header(-Cache_control => 'no-cache', -Pragma => 'no-cache');      
+    #&Launchh::clean_exit();    
+    
+    #generate a random 32 bit long string;
+    # Entry that in database associated with time and username
+    # If valid send a reset password link.
+    
+}
+
+my $og_title = "";
+print $Launchh::_query->header();
+print_header(); # &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+print html_login();
+print_footer();
+
+&Launchh::clean_exit();
+
+sub html_login
+{
+    my $action_page = "./account";
+    $action_page = "social/fmttll" if( $ref eq 'funders');
+    $action_page = "login" if($cred eq 'forgot_pass');
+    
+    my $reset_or_login = "Login";
+    $reset_or_login = "Reset Password" if($cred eq 'forgot_pass');
+    
+    my $signup_href = "signup";
+    $signup_href = "signup?ref=funders&trailer=$trailer_escaped&trailto=$trailto&ttfull=$ttfull&trailfor=$trailfor&eId=$eId" if( $ref eq 'funders');
+    if($pmode ne ''){
+        if($signup_href eq 'signup'){ $signup_href = "signup?pmode=$pmode"; }
+        else{ $signup_href .= "&pmode=$pmode"; }
+        $action_page .= "?pmode=$pmode"; 
+    }
+    my $error_str = "";
+    $error_str = "We can't find an account with that username or password. Please try again or sign up for an account if you haven't already." if($cred eq 'error');
+    my $forgot_pw_href = "login?cred=forgot_pass";
+    $forgot_pw_href  .= "&pmode=$pmode" if($pmode ne '');
+    
+
+    my $str .=<<EOM;
+    
+		<div class="section section-signup">
+			<div class="shell">
+				<div class="section-body">
+					<div class="login">
+EOM
+    
+    if($cred eq 'forgot_pass'){
+        $str .=<<EOM;
+						<h3>Type your Username / Email</h3>
+                            <div class="form form-login">
+                                <form name="login" action="$action_page" target="_parent" method="post" onsubmit="return false;">
+                    				<div class="form-body">
+									<div class="form-row">
+		                                          <input id="email" type="text"  name="u" class="field" placeholder="Username or Email" />
+		                                          <input  type="hidden"  name="forgot_pwd" value=1 />
+									</div><!-- /.form-row -->
+								</div><!-- /.form-body -->
+EOM
+    } 
+    elsif($cred eq 'pwd_reset'){
+        $str .=<<EOM;
+						<h3>Password Reset</h3>
+                             <br>
+                            <div class="form form-login">
+                                <form name="login" action="$action_page" target="_parent" method="post" onsubmit="return false;">
+                    				<div class="form-body">
+									<div class="form-row">
+		                                          <input id="email" type="text"  name="u" class="field" placeholder="Validation Email Sent" disabled/>
+									</div><!-- /.form-row -->
+								</div><!-- /.form-body -->
+                                        <br>
+                                        <br>
+                                        The password reset process has now been started. Please check your email for instructions on what to do next. 
+EOM
+    }
+    elsif($cred eq 'pwd_reset_final'){
+        $str .=<<EOM;
+						<h3>Password Reset</h3>
+                             <br>
+                            <div class="form form-login">
+                                <form name="login" action="$action_page" target="_parent" method="post" onsubmit="return false;">
+                    				<div class="form-body">
+									<div class="form-row">
+		                                          <input id="email" type="text"  name="u" class="field" placeholder="Reset Password Sent" disabled/>
+									</div><!-- /.form-row -->
+								</div><!-- /.form-body -->
+                                        <br>
+                                        <br>
+                                        The password reset process has now been finished. Please check your email for reset password credentials to login.
+EOM
+    }
+    else{
+        $str .=<<EOM;
+						<h3>Already Have An Account?</h3>
+                            <div class="form form-login">
+                                <form name="login" action="$action_page" target="_parent" method="post" onsubmit="return false;">
+                    				<div class="form-body">
+									<div class="form-row">
+		                                          <input id="email" type="text"  name="u" class="field" placeholder="Username or email" />
+									</div><!-- /.form-row -->									
+									<div class="form-row">
+										<input type="password" name="p" id="log-pass" class="field" placeholder="password" />
+                                         <input type="hidden" name="mode" value="login">
+									</div><!-- /.form-row -->
+								</div><!-- /.form-body -->
+EOM
+    }
+    if($error_str ne ''){
+            $str .=<<EOM;
+                                        <div class="error-box"><font  color="#ffffff">$error_str</font></div><br><br><br>
+EOM
+    }
+ else{
+            $str .=<<EOM;
+                                        <div id="red-box"></div>
+EOM
+    }
+  
+  if($cred ne 'pwd_reset' and $cred ne 'pwd_reset_final'){  
+    $str .=<<EOM;
+                                <div class="form-actions">
+								<input type="submit" value="$reset_or_login" class="form-btn"   onClick="return isValid();" />
+                                        <!-- <button type="submit" class="btn btn-blue btn-small">Login<i class="icon-arrow-white"></i></button> -->
+EOM
+    if($error_str ne ''){
+        $str.=<<EOM;
+                                <p class="reminder"><a href="$forgot_pw_href">Forgot Password?  Click here.</a></p>
+EOM
+    }
+    else{
+	 my $forgot_pass_str =  "<a href=\"$forgot_pw_href\">Forgot Password?</a> | ";
+	 $forgot_pass_str =  '' if($cred eq 'forgot_pass');
+	 
+        $str.=<<EOM;
+                                <p class="reminder">$forgot_pass_str<a href="$signup_href">No account?  Join here.</a></p>
+EOM
+    }
+
+    $str.=<<EOM;
+								</div><!-- /.form-actions -->
+EOM
+
+}
+if( $ref eq 'funders'){
+            $str .=<<EOM;
+                                         <input type="hidden" name="trailer" value="$trailer_escaped">
+                                         <input type="hidden" name="trailto" value="$trailto">
+                                         <input type="hidden" name="ttfull" value="$ttfull">
+                                         <input type="hidden" name="trailfor" value="$trailfor">
+                                         <input type="hidden" name="eId" value="$eId">
+                                         <input type="hidden" name="pledged" value="$pledged">
+                                         <input type="hidden" name="pledgegoal" value="$pledgegoal">
+                                         <input type="hidden" name="anonymous" value="$anonymous">					 
+EOM
+    }
+
+if( $ref eq 'funders'){
+        $str .=<<EOM;
+                                            <div align=center>
+                                                <br>
+                                                <br>
+                                                <h4> ____________or____________ </h4>
+                                                <br>
+                                                <br>
+                                            </div>
+                                             <input type="submit" value="" class="btn-facebook" onClick="return fbLogin();"/> 
+                                            <span class="form-hint" align=center><br>We'll never post anything on Facebook  without your permission.<br></span>
+                                            <hr>
+EOM
+    }
+    
+$str .=<<EOM;
+                                            <input type="hidden" name="pmode" value="$pmode">
+
+                                    </form>
+                                </div><!-- /.form form-login -->
+					</div><!-- /.login -->
+				</div><!-- /.section-body -->
+			</div><!-- /.shell -->        
+
+        <script>
+            function fbLogin(){
+                    location.href="social/fmttll?trailer=$trailer_escaped&trailto=$trailto&ttfull=$ttfull&trailfor=$trailfor&eId=$eId&pmode=$pmode";
+                    return false;
+            }
+EOM
+
+if($cred eq 'forgot_pass'){
+   $str  .=<<EOM;  
+         function isValid() {
+    
+            var email=document.login.u.value;            
+            
+             if (email == '') {
+               \$("#red-box").html("<div class='error-box'><font  color='#ffffff'>Please enter your username or email address.</font></div><br><br><br>")
+                return false;
+            }  
+            
+            document.login.submit();
+    }
+EOM
+}
+
+else{
+   $str  .=<<EOM;  
+         function isValid() {
+    
+            var email=document.login.u.value;
+            var password=document.login.p.value;
+            
+             if (email == '') {
+               \$("#red-box").html("<div class='error-box'><font  color='#ffffff'>Please enter your username or email address.</font></div><br><br><br>")
+                return false;
+            }  
+            
+             if (password == '') {
+               \$("#red-box").html("<div class='error-box'><font  color='#ffffff'>Please enter your password.</font></div><br><br><br>")
+                return false;
+            }  
+            document.login.submit();
+    }
+EOM
+}
+
+$str .=<<EOM;
+     function myTrim(x) {
+        return x.replace(/^\s+|\s+\$/gm,'');
+    }       
+       
+        </script>        
+EOM
+
+return $str;
+
+}
+
+
+sub print_header
+{
+   my $header = &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+#$user_header_str = " of ".$Launchh::account->{'account_name_first'} if($Launchh::account->{'account_name_first'} ne '');
+
+   $header =~ s/XXXTITLEXXX/USER PROFILE/is;
+   $header =~ s/TITLE_FOR_SOCIAL_SITE/$og_title/gs;
+   $header =~ s/DASHBOARDSTR//is;
+   $header =~ s/<li class="separator">.*?<\/li>//is;
+
+    if( $pmode ne '' &&  !defined $session->param("pmode") ){
+        $header =~ s/faq">/faq\?pmode=$pmode">/is;   
+        $header =~ s/login">/login\?pmode=$pmode">/is;   
+        $header =~ s/discover">/discover\?pmode=$pmode">/is;   
+
+        $header =~ s/SIGNUPSTR/<li class="signup"><a href=\"..\/signup?pmode=$pmode\">Sign Up<\/a><\/li>/is;   
+    }
+    
+    $header =~ s/SIGNUPSTR/<li class="signup"><a href=\"..\/signup\">Sign Up<\/a><\/li>/is;   
+
+    print $header;
+}
+
+
+sub print_footer
+{
+    
+   my $footer = &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+
+    if( $pmode ne '' && !defined $session->param("pmode") ){
+        $footer =~ s/privacy"/privacy\?pmode=$pmode"/is;   
+        $footer =~ s/terms"/terms\?pmode=$pmode"/is;   
+    }
+    
+    print $footer;
+}
+
+sub send_forgot_password_email{	
+    
+	my $pwd_token = shift;  
+	my $to = $Launchh::account->{'account_email'};  
+	$to =~ s/\'//;    
+    
+	my $subject = "Changing Your LaunchLeader Password";
+	my $from = $Launchh::FROM_EMAIL_ADDRESS;
+    my $body = "";
+	my $cc = '';	    
+    
+    my $admin_email = $Launchh::SIVI_ADMIN_EMAIL;	  
+    my $bcc = $admin_email;    
+    
+    my $page_url = 'http';
+    if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off") {
+        $page_url .= "s";
+    }
+    $page_url .= "://".$ENV{SERVER_NAME};
+    
+    $page_url .= "/cred/pwreset.php?key=$pwd_token";
+    $page_url .= "&pmode=$pmode" if($pmode ne '');
+    
+    my $name = $Launchh::account->{'account_name_first'};
+    $name =~ s/'//gis;
+        
+    my $message = "";
+    my $header  ="Content-Type: text/html; charset=ISO-8859-1\n\n
+    <html><body>
+    ";
+    
+    $message = "$header
+Dear $name,<br><br>
+We just received a request to reset your LaunchLeader password. If you did not intend to make this request, please ignore this email. It will expire and become useless in 6 hours.
+<br><br>
+To reset your password, please click the link below:<br>
+<a href=\"$page_url\">$page_url</a><br><br>
+
+When you click the link above, We will send you a reset password email confirmation.<br><br>
+Please note you can change your password anytime after logging and going to Reset Password on your My Dashboard page. 
+<br><br>
+Best Wishes,<br><br>
+The LaunchLeader Team<br>
+</body></html>
+";
+
+    $body = $message;    
+	&Launchh::sendmail($to, $subject, $body, $from, $cc, $bcc);
+    print STDERR "Email sent to for lost password for entrepreneur:$to\n";
+    
+}

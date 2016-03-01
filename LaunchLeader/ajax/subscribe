@@ -1,0 +1,107 @@
+#!/usr/bin/perl
+
+use lib '../cgi-bin';
+use lib '../util';
+
+use Launchh;
+use strict;
+use Data::Dumper;
+    
+#$Launchh::HFILE = "empty-ll2.html";
+
+my $username = $Launchh::_query->param('uname');
+my $firstname = $Launchh::_query->param('firstname');
+my $tosend = $Launchh::_query->param('tosend') || 0; 
+my $message = $Launchh::_query->param('message'); 
+my $subscriber_email = $Launchh::_query->param('subscriber_email'); 
+#my $message = $Launchh::_query->param('message') ; 
+
+
+$Launchh::u = $Launchh::_query->param('uname');
+
+&Launchh::select_accounts("WHERE account_username='$Launchh::u'");
+&Launchh::next_account();
+
+my $toname = $Launchh::account->{'account_name_first'}. " ". $Launchh::account->{'account_name_last'}; 
+
+print $Launchh::_query->header();
+print html_subscribe();
+&Launchh::clean_exit();
+
+sub html_subscribe
+{
+		
+	my $update_str = << "EOM";
+<div class="popup">
+		<div class="popup-head" id="confirmation">
+		<h2>Sign up for email updates from this entrepreneur to keep you posted</h2>
+	</div><!-- /.popup-head -->
+
+	<div class="popup-body">
+		<div class="form form-refer">
+			<form onsubmit="return recieveEmail();">
+				<div class="form-body">
+					<div class="form-row">
+						<div class="form-controls">
+					     		<input type="text" name="email" id="subscriber_email" class="field" value="$subscriber_email" placeholder="example\@gmail.com" />
+						</div><!-- /.form-controls -->
+					</div><!-- /.form-row -->
+				</div><!-- /.form-body -->
+				<div class="form-actions">
+					<input type="submit" value="SUBSCRIBE" class="btn btn-medium btn-yellow" />
+				</div><!-- /.form-actions -->
+			</form>
+		</div><!-- /.form form-refer -->
+	</div><!-- /.popup-body -->
+</div><!-- /.popup -->
+
+<script>
+               function recieveEmail() {
+             \$.ajax(
+                {
+                    type: 'POST',
+                    cache: false,
+                    dataType: 'html',                    
+                    url: 'social/get-subscribe.php',
+                    data: {uname :  '$Launchh::u',   email: \$("#subscriber_email").val()},
+                    success: function(data)
+                    {
+                         if (data && data.error && data.errorno)
+                         {
+                               // there is an application-level error. Hande it.
+                               // ...
+                               return;
+                         }
+                         if(data == 'failed'){
+                                \$('#confirmation').html("<h2><i>Failed to subscribe this time! Please contact SIVI admin.</i></h2>");
+                        }
+                        else if(data == 'subscribed'){
+                                \$('#confirmation').html("<h2><i>You have successfully subscribed!</i></h2>");
+                        }
+                         else if(data == 'already-subscribed'){
+                                \$('#confirmation').html("<h2><i>You are already subscribed to the Entrepreneur.</i></h2>");
+                        }
+                    }
+                });                 
+                return false;
+          }
+
+</script>
+
+
+EOM
+		
+return $update_str;
+}
+
+
+
+sub trim
+{
+    my $str = shift;
+    
+    $str =~ s/^\s+//;
+    $str =~ s/\s+$//;
+    
+    return $str;
+}

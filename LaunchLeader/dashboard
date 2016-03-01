@@ -1,0 +1,1630 @@
+#!/usr/bin/perl
+
+use lib 'cgi-bin';
+use lib 'util';
+use Launchh;
+use strict;
+use Data::Dumper;
+use POSIX qw(floor);
+use POSIX qw(ceil);
+use POSIX 'strftime';
+use Date::Calc qw(Delta_Days);
+use CGI::Session;
+
+
+my $session = new CGI::Session("driver:File", undef, {Directory=>"/tmp"});
+print STDERR "sess uid: ".$session->param("uid");
+
+my $cgi = new CGI;
+my $cookie = $cgi->cookie( "CGISESSID", $session->id );
+$session->expire("+20m");
+#print $cgi->header(-cookie=>$cookie);
+
+my $pmode  = $session->param("pmode") if(defined $session->param("pmode"));
+$pmode = $Launchh::_query->param('pmode') if($pmode eq '');
+
+my $ce_id = $Launchh::_query->param('campaign_id');
+my $dir_str = "../";
+my $cancelled_status = 80004;
+
+if($pmode ne  '' && $pmode ne  'launchleader') {
+	$Launchh::HFILE = "template/empty-$pmode.html";
+}
+else{
+	$Launchh::HFILE = "empty-ll2.html";
+}
+
+$Launchh::u = $Launchh::_query->param('u');
+
+$Launchh::u = $session->param("username") if($Launchh::u  eq '');
+$Launchh::uid = $session->param("uid") if($Launchh::uid  eq '' or $Launchh::uid  == 0);
+
+if(!$Launchh::uid)
+{
+    #print "Location: /index.html?rand=\n\n";
+    if($pmode ne '' && $pmode ne 'launchleader'){
+		print $session->header(-location=>"/partner/$pmode");
+    }
+    else{
+        print $session->header(-location=>'index.html');
+    }
+    print $cgi->header(-expires => 'now', -Cache_control => 'no-cache', -Pragma => 'no-cache');      
+    &Launchh::clean_exit();
+}
+
+
+my $mode = $Launchh::_query->param('mode');
+my $post_id = $Launchh::_query->param('post_id');
+my $action = $Launchh::_query->param('action');
+my $search_name = $Launchh::_query->param('search_name');
+
+    
+my $actiontemp = 'insert';
+$actiontemp = "edit" if($post_id ne '');
+
+
+my $username = $Launchh::u;
+my $project_id = 0;
+
+my $printheaders = 1;
+if($action ne ''){
+   $printheaders = 0 
+}
+
+print STDERR "username [$username]";
+&Launchh::select_accounts("WHERE account_username='$Launchh::u'");
+&Launchh::next_account();
+
+$Launchh::uid = $Launchh::account->{'account_id'};
+my $verify_str = "";
+$verify_str = "<div class=\"info\"><h4>Your email address is not verified yet. <u><a href='account?stage=8'>Please  verify it here</a></u></h4></div>" if($Launchh::account->{'account_verified'} == '0');
+
+
+if($Launchh::account->{'account_status'} == $cancelled_status  && $mode ne 'cancelled'){
+    ##We are going to redirect to a cancelled page!!
+    print $session->header(-location=>'dashboard?mode=cancelled&pmode=$pmode');
+    print $cgi->header(-Cache_control => 'no-cache', -Pragma => 'no-cache');      
+    &Launchh::clean_exit();
+}
+
+#my $og_title = "Click here to support entrepreneurship by ".$Launchh::account->{'account_name_first'}." ".$Launchh::account->{'account_name_last'};
+my $og_title = "";
+if($printheaders){
+    ## Printing Headers 
+    print $Launchh::_query->header();
+    print_header(); # &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+    ## End Printing Headers
+}
+
+my $profile_photo = '';
+&Launchh::select_details("WHERE detail_type=2 AND detail_status=1 AND detail_id = 25");
+&Launchh::next_detail();
+
+&Launchh::select_question($Launchh::detail->{'detail_desc'});
+
+&Launchh::select_account_details("WHERE account_id=$Launchh::account->{'account_id'} AND detail_id=$Launchh::detail->{'detail_id'} AND account_detail_status=1 ORDER BY account_detail_id desc LIMIT 1");
+&Launchh::next_account_detail();
+
+my $detail_value = $Launchh::account_detail->{'account_detail_desc'};
+$profile_photo= $detail_value;
+
+if($profile_photo eq ''){
+    $profile_photo = "images/launchleader-human-avatar.png";
+}
+else{
+    $profile_photo = "uploads/$Launchh::uid/images/$profile_photo";
+}
+$profile_photo =~ s/([^^A-Za-z0-9\-_.!~*'()\/])/ sprintf "%%%0x", ord $1 /eg;
+
+my $profile_photo_str =<<EOM;
+								<li class="widget widget-photo">
+                                                    <div class="profile-image-container" style='background-image: url($profile_photo);'></div>
+								</li><!-- /.widget widget-photo -->
+EOM
+
+
+if($mode eq 'update'){
+    
+    my $profile = $Launchh::_query->param('profile');
+    my $email = $Launchh::_query->param('email');
+    my $update_text = $Launchh::_query->param('update_text');
+    my $update_title = $Launchh::_query->param('update_title');
+    
+    print STDERR  "update_text[$update_text] update_title[$update_title] ";
+    
+    if($email eq 'yes'){ $email = 1 ; }
+    else{ $email = 0; }
+    
+    if($profile eq 'yes'){  $profile = 1 ;  }
+    else{   $profile = 0; }
+
+    $Launchh::user_update->{'user_update_title'} = $update_title;
+    $Launchh::user_update->{'user_update_text'} = $update_text;
+    $Launchh::user_update->{'user_update_public'} = $profile;
+    $Launchh::user_update->{'user_update_sendemail'} = $email;
+    $Launchh::user_update->{'user_update_datetime'} = 'NOW()';
+
+    if($action eq 'edit') {
+        #&Launchh::update_user_update("account_detail_desc = '$account_summary'");        
+        $Launchh::user_update->{'user_update_id'} = $post_id;
+        &Launchh::update_user_update();
+    }
+    elsif($action eq 'insert') {
+        $Launchh::user_update->{'user_update_id'} = 'NULL';
+        $Launchh::user_update->{'campaign_id'} = 0;
+        $Launchh::user_update->{'account_id'} = $Launchh::account->{'account_id'};
+        $post_id = &Launchh::insert_user_update();
+        #exit;
+    
+        #we will shoot an email on every new update from here         
+        if($email == 1){
+            send_update_broadcast($post_id,$update_title, $update_text);
+        }
+        
+    }
+    if($action ne ''){
+        print "Location: /dashboard?mode=activity&pmode=$pmode\n\n";        
+        &Launchh::clean_exit();
+    }
+    print html_update();
+}
+
+elsif($mode eq 'completed'){
+
+    $project_id  = $Launchh::uid;
+    
+    #my $total_premade_elements = 8;
+    #for(my $element_inx = 1 ; $element_inx <= $total_premade_elements ; $element_inx++) {
+
+    my @elementArr;
+    my $element_inx = 9;
+    &Launchh::select_element_details("WHERE account_id = $Launchh::account->{'account_id'} AND element_detail_status = '1' ORDER BY element_id ASC" );
+    while(&Launchh::next_element_detail()){
+        $elementArr[$element_inx++] = $Launchh::element_detail->{'element_id'} if($Launchh::element_detail->{'element_id'} > 8);
+    }
+
+    for(my $inx = 1; $inx < $element_inx; $inx++){
+        my $eID = $inx; 
+        $eID = $elementArr[$inx] if($inx > 8); 
+  
+        &Launchh::select_elements("WHERE element_status=1 AND element.element_id = '$eID'");
+        &Launchh::next_element();
+        if($Launchh::element->{'element_id'} eq '') {
+            next;
+        }
+        my $element_inx = $Launchh::element->{'element_id'};
+    
+        my $element_completed_val  = $Launchh::_query->param('element_'.$element_inx) || '';
+    
+        if(defined $Launchh::_query->param('element_'.$element_inx)){                
+            &Launchh::select_completed_tools("where account_id = $Launchh::account->{'account_id'} AND element_id = '$element_inx' AND project_id = '$project_id'");
+            &Launchh::next_completed_tools();
+            
+            $Launchh::completed_tools->{'completed_tools_title'} = 'element_'.$element_inx;
+            $Launchh::completed_tools->{'completed_tools_url'} = $element_completed_val;
+            $Launchh::completed_tools->{'account_id'} = $Launchh::account->{'account_id'};
+            $Launchh::completed_tools->{'element_id'} = $element_inx;
+            $Launchh::completed_tools->{'project_id'} = $project_id;
+            $Launchh::completed_tools->{'completed_tools_datetime'} = 'NOW()';
+            
+            if($Launchh::completed_tools->{'completed_tools_id'} eq '') {
+                $Launchh::completed_tools->{'completed_tools_id'} = 'NULL';        
+                &Launchh::insert_completed_tools();
+            }
+            else{
+                &Launchh::update_completed_tools();
+            }
+        }
+    }
+    print html_completed();
+}
+
+elsif($mode eq 'account'){
+    my $newpass = $Launchh::_query->param('newpass');
+    my $currentpass = $Launchh::_query->param('currentpass');
+    
+    #print STDERR "[$newpass] [$currentpass]\n";
+    
+    my $passstatus = '';
+
+    
+    if($newpass ne '' && $currentpass ne ''){
+        $currentpass = $Launchh::dbh->quote(&Launchh::get_enc($currentpass,$Launchh::dbh));
+        $newpass = $Launchh::dbh->quote(&Launchh::get_enc($newpass,$Launchh::dbh));
+        
+
+        &Launchh::select_accounts("WHERE LOWER(account_username)='$Launchh::u'  and account_password=$currentpass");
+        &Launchh::next_account();
+        if($Launchh::account->{'account_id'}) {
+             ## Successfully updated!
+            $passstatus = 'success';
+             &Launchh::update_account("account_password=$newpass");	
+        }
+        else{
+            ## Wrong Password!
+            $passstatus = 'incorrect';
+        }
+    }
+    &Launchh::select_accounts("WHERE account_username='$Launchh::u'");
+    &Launchh::next_account();    
+    print html_account_settings($passstatus);
+}
+
+elsif($mode eq 'cancelled'){
+    print html_cancelled();
+}
+elsif($mode eq 'analytics'){
+    print html_analytics();
+}
+elsif($mode eq 'funderslog'){
+    print html_funders_log();
+}
+else{
+    # activity logs
+    print html_activity_log();
+}
+
+## Printing Footer
+#print &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+print_footer();
+## End Printing Footer
+
+&Launchh::clean_exit();
+
+
+sub html_funders_log
+{
+   
+    my $str = << "EOM";
+
+		<div class="section section-admin">
+			<div class="shell clearfix">
+            $verify_str
+				<div class="section-admin-inner">
+					<div class="section-head">
+						<h2>Funders Log</h2>
+					</div><!-- /.section-head -->
+
+					<div class="section-body">
+						<div class="admin-sidebar">
+							<ul class="widgets">
+                                          $profile_photo_str      
+								<li class="widget widget-nav">
+EOM
+
+    $str .= html_menu();
+    
+    $str .= <<EOM;
+								</li><!-- /.widget widget-nav -->
+							</ul><!-- /.widgets -->
+						</div><!-- /.admin-sidebar -->
+
+						<div class="admin-content">
+							<div class="funders-log">
+								<div class="funders-head">
+                                     <a href="ajax/export-xls?pmode=$pmode" class="btn btn-small btn-green btn-export">Export</a>
+
+									<div class="search-form">
+										<form action="dashboard" method="get">
+											<div class="form-controls">
+												<input type="text" class="field" name=search_name id=serarch_name placeholder="search here" />
+											</div><!-- /.form-controls -->
+
+											<div class="form-actions">
+												<button type="submit" class="btn btn-small">Search</button>
+											</div><!-- /.form-actions -->
+                                                            <input type="hidden" name="mode" value="$mode">
+                                                            <input type="hidden" name="u" value="$username">
+										</form>
+									</div><!-- /.search-form -->
+								</div><!-- /.funders-head -->
+
+								<div class="funders-body">
+									<table width="100%" border="0" cellspacing="0" cellpadding="0" class="table-funders">
+										<tr>
+											<th class="td-num">#</th><!-- /.td-num -->
+											<th class="td-name">Name</th><!-- /.td-name -->
+											<th class="td-amount">Total Amount</th><!-- /.td-amount -->
+											<th class="td-date">Last Date</th><!-- /.td-amount -->
+											<th class="td-message">Message</th><! -- /.td-message -->
+										</tr>
+EOM
+
+    my @fundingArr;
+    my $funding_amount = 0;
+    my $funder_id = '';
+    my $funded_element_name = '';
+    my $funder_count = 0;
+    my $funder_title = '';
+    my $funder_email = '';
+    my $funding_date = '';
+    my $conversation_count = '0';
+    my $current_fund = 0;
+    my $funder_id_tosend = 0;
+     
+    $search_name =~ s/^\s+//;
+    $search_name =~ s/\s+$//;
+    
+    #search_name    
+    &Launchh::select_funder_detail_by_user($Launchh::account->{'account_id'}, $search_name);
+    while(&Launchh::next_funder_details()){
+
+        &Launchh::select_element_details("WHERE account_id = '$Launchh::account->{'account_id'}' AND element_detail_status = '1' AND element_id = $Launchh::funding_detail->{'element_id'}" );
+        &Launchh::next_element_detail();
+        
+        if($Launchh::element_detail->{'element_id'} eq '') {
+            next;
+        }
+        
+        if($funder_id eq ''){
+            $funder_id =  $Launchh::funding_detail->{'account_funder_id'} ;
+            $funder_email =  $Launchh::funding_detail->{'account_funder_email'};
+            $funding_date =  $Launchh::funding_detail->{'funding_details_datetime'};
+            $conversation_count = &Launchh::total_conversation($funder_email, $Launchh::account->{'account_id'});            
+        }
+
+        if( $funder_id ne $Launchh::funding_detail->{'account_funder_id'}){
+            $funder_id = $Launchh::funding_detail->{'account_funder_id'};
+            $funder_count++;
+            
+            my ($year, $month, $day) =  $funding_date =~ /^(\d\d\d\d)-(\d\d)-(\d\d)/;
+            $funding_date  = "$year-$month-$day";
+            my @tempArr = ($funder_title, $funding_amount, $funding_date, $funder_id_tosend, $conversation_count);
+            push(@fundingArr, [@tempArr]);
+=begin
+            $str.= <<EOM;
+                                <tr>
+                                    <td class="td-num">$funder_count</td><!-- /.td-num -->
+                                    <td class="td-name"><a href="ajax/message?funder_id=$funder_id_tosend&msgcount=$conversation_count" onClick="javascript:setValue($funder_id_tosend);" class="modal-trigger">$funder_title</a></td><! -- /.td-name --> 
+                                    <!-- <td class="td-name">$funder_title</td><! -- /.td-name --> 
+                                    <td class="td-amount">\</td><!-- /.td amount -->
+                                    <td class="td-date">$funding_date</td><!-- /.td-date -->
+                                    <td class="td-message">
+                                    	<a href="ajax/message?funder_id=$funder_id_tosend&msgcount=$conversation_count" onClick="javascript:setValue($funder_id_tosend);" class="modal-trigger"><i class="ico-mail"></i><span id="fc_count_$funder_id_tosend">($conversation_count)</span></a> 
+                                    </td><!-- /.td-message -->
+                                </tr>
+EOM
+=cut
+            $funding_amount = ceil($Launchh::funding_detail->{'fund_amount'}/100);
+            $funder_email =  $Launchh::funding_detail->{'account_funder_email'};
+            $funding_date =  $Launchh::funding_detail->{'funding_details_datetime'};
+            $conversation_count = &Launchh::total_conversation($funder_email, $Launchh::account->{'account_id'});    
+        }
+        else{
+            $funding_amount += ceil($Launchh::funding_detail->{'fund_amount'}/100);        
+            $funding_date =  $Launchh::funding_detail->{'funding_details_datetime'};
+        }
+        $current_fund += ceil($Launchh::funding_detail->{'fund_amount'}/100);     
+        
+        #$funder_avatar = $Launchh::funding_detail->{'account_funder_avatar'};
+        $funder_title = $Launchh::funding_detail->{'account_funder_name'};
+        $funder_id_tosend = $Launchh::funding_detail->{'account_funder_id'};
+
+    }
+    
+    if($current_fund != 0){
+        my ($year, $month, $day) =  $funding_date =~ /^(\d\d\d\d)-(\d\d)-(\d\d)/;
+        $funding_date  = "$year-$month-$day";
+         
+        $funder_count++;
+        my @tempArr = ($funder_title, $funding_amount, $funding_date, $funder_id_tosend, $conversation_count);
+        push(@fundingArr, [@tempArr]);
+       
+=begin        
+        $str.= <<EOM;
+                                <tr>
+                                    <td class="td-num">$funder_count</td><!-- /.td-num -->
+                                    <td class="td-name"><a href="ajax/message?funder_id=$funder_id_tosend&msgcount=$conversation_count" onClick="javascript:setValue($funder_id_tosend);"  class="modal-trigger">$funder_title</a></td><! -- /.td-name --> 
+                                    <!-- <td class="td-name">$funder_title</td><! -- /.td-name --> 
+                                    <td class="td-amount">\$$funding_amount</td><!-- /.td amount -->
+                                    <td class="td-date">$funding_date</td><!-- /.td-date -->
+                                    <td class="td-message">
+                                    	<a href="ajax/message?funder_id=$funder_id_tosend&msgcount=$conversation_count" onClick="javascript:setValue($funder_id_tosend);"  class="modal-trigger"><i class="ico-mail"></i><span id="fc_count_$funder_id_tosend">($conversation_count)</span></a> 
+                                    </td><!-- /.td-message -->
+                                </tr>
+EOM
+=cut
+    }
+    
+    my @sorted_by_amount = sort { $b->[1] <=> $a->[1] } @fundingArr;
+    @fundingArr = @sorted_by_amount;
+    
+    for( my $inx = 0; $inx <= $#fundingArr; $inx++){
+        $funder_title = $fundingArr[$inx][0];
+        $funding_amount = $fundingArr[$inx][1] ;
+        $funding_date = $fundingArr[$inx][2];
+        $funder_id_tosend =  $fundingArr[$inx][3];
+        $conversation_count = $fundingArr[$inx][4];   
+        $funder_count = $inx+1;
+        $str.= <<EOM;
+                                <tr>
+                                    <td class="td-num">$funder_count</td><!-- /.td-num -->
+                                    <td class="td-name"><a href="ajax/message?funder_id=$funder_id_tosend&msgcount=$conversation_count" onClick="javascript:setValue($funder_id_tosend);"  class="modal-trigger">$funder_title</a></td><! -- /.td-name --> 
+                                    <!-- <td class="td-name">$funder_title</td><! -- /.td-name --> 
+                                    <td class="td-amount">\$$funding_amount</td><!-- /.td amount -->
+                                    <td class="td-date">$funding_date</td><!-- /.td-date -->
+                                    <td class="td-message">
+                                    	<a href="ajax/message?funder_id=$funder_id_tosend&msgcount=$conversation_count" onClick="javascript:setValue($funder_id_tosend);"  class="modal-trigger"><i class="ico-mail"></i><span id="fc_count_$funder_id_tosend">($conversation_count)</span></a> 
+                                    </td><!-- /.td-message -->
+                                </tr>        
+EOM
+    }
+    
+    $str.= <<EOM;
+                        <form  onsubmit="return retrieveCall();">
+                                <input type="hidden" name="account_id" id="account_id" value="$Launchh::account->{'account_id'}"/>
+                                <input type="hidden" name="funder_id" id="funder_id" value=""/>
+                        </form>
+                        </table><!-- /.table-funders -->
+								</div><!-- /.funders-body -->
+							</div><!-- /.funders-log -->
+						</div><!-- /.admin-content -->
+					</div><!-- /.section-body -->
+				</div><!-- /.section-admin-inner -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-admin -->
+
+<script>
+            function setValue(funder_id){
+                document.getElementById("funder_id").value = funder_id;
+            }
+            function retrieveCall() {
+                // 1. Create XHR instance - Start
+                
+                var xhr;
+                if (window.XMLHttpRequest) {
+                    xhr = new XMLHttpRequest();
+                }
+                
+                else if (window.ActiveXObject) {
+                    xhr = new ActiveXObject("Msxml2.XMLHTTP");
+                }
+                else {
+                    throw new Error("Ajax is not supported by this browser");
+                }
+                
+                // 1. Create XHR instance - End
+                
+                // 2. Define what to do when XHR feed you the response from the server - Start
+                
+                xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                        if (xhr.status == 200 && xhr.status < 300) {
+                            var ajaxreply = xhr.responseText;
+                            //alert(convcountrx.test(ajaxreply));
+                            if(ajaxreply * 1 == ajaxreply){
+                                \$('#fc_count_'+funder_id).html("("+ajaxreply+")");
+                            }
+                        }
+                    }
+                }
+                // 2. Define what to do when XHR feed you the response from the server - Start
+
+                var account_id = document.getElementById("account_id").value;
+                var funder_id = document.getElementById("funder_id").value;
+            
+                var post_str = "account_id=" + account_id +"&funder_id=" + funder_id +"&action=convcount";
+                
+                // 3. Specify your action, location and Send to the server - Start 
+                //if(tosend == 1)
+                {
+                    xhr.open('POST', '$dir_str'+'ajax/ajaxreply');
+                    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                    xhr.send(post_str);
+                }
+                // 3. Specify your action, location and Send to the server - End
+
+                return false;
+          }
+</script>
+
+EOM
+
+return $str;
+
+}
+
+sub html_activity_log
+{
+   
+   my $default_milestone = $Launchh::DEFAULT_MILESTONE;
+   my $cur_date = POSIX::strftime('%Y-%m-%d %H:%M:%S', localtime);
+   my ($year2, $month2, $day2, $hour2, $min2, $sec2) = $cur_date =~ /^(\d\d\d\d)\-(\d\d)-(\d\d)\s+(\d\d)\:(\d\d)\:(\d\d)/;   
+   
+   my @updateArr;
+   my @fundingArr;
+   my @campaignArr;
+   my @overallArr;
+   my @tempArr;
+    
+    # Update Related activity
+    &Launchh::select_user_updates("WHERE account_id = '$Launchh::account->{'account_id'}'");
+    while(&Launchh::next_user_update()){
+            my $update_id    =  $Launchh::user_update->{'user_update_id'} ;
+            my $update_title =  $Launchh::user_update->{'user_update_title'} ;
+            my $update_time =  $Launchh::user_update->{'user_update_datetime'} ;
+            #my ($year, $month, $day) = $update_time =~ /^(\d\d\d\d)-(\d\d)-(\d\d)/;
+            #$update_time = "$day/$month/$year";
+            @tempArr = ("Update", "<a href=\"dashboard?mode=update&pmode=$pmode&post_id=$update_id\">$update_title</a>", $update_time);
+            push(@updateArr, [@tempArr]);
+            push(@overallArr, [@tempArr]);
+            
+            my @sorted_by_date = sort { $b->[2] cmp $a->[2] } @updateArr;
+            @updateArr = @sorted_by_date;
+
+    }
+
+    # Funding Related activity
+    &Launchh::select_funder_detail_by_user($Launchh::account->{'account_id'}, '');
+    while(&Launchh::next_funder_details()){
+            my $funder_name =  $Launchh::funding_detail->{'account_funder_name'} ;
+            my $funder_amount =  $Launchh::funding_detail->{'fund_amount'}  / 100;
+            my $funding_time =  $Launchh::funding_detail->{'funding_details_datetime'} ;
+            #my ($year, $month, $day) = $funding_time =~ /^(\d\d\d\d)-(\d\d)-(\d\d)/;
+            #$funding_time = "$day/$month/$year";
+            @tempArr = ("Funding", "<strong>$funder_name</strong> Funded \$$funder_amount", $funding_time);
+            push(@fundingArr, [@tempArr]);
+            push(@overallArr, [@tempArr]);
+            
+            my @sorted_by_date = sort { $b->[2] cmp $a->[2] } @fundingArr;
+            @fundingArr = @sorted_by_date;
+            
+            @sorted_by_date = sort { $b->[2] cmp $a->[2] } @overallArr;
+            @overallArr = @sorted_by_date;
+    }
+    
+    # Campaign Related activity
+    &Launchh::select_element_details("WHERE account_id = $Launchh::account->{'account_id'} AND element_detail_status = '1'" );
+    while(&Launchh::next_element_detail()){
+        &Launchh::select_elements("WHERE element_status=1 AND element.element_id = $Launchh::element_detail->{'element_id'}");
+        &Launchh::next_element();
+        if($Launchh::element->{'element_id'} eq '') {
+            next;
+        }
+        
+        my $first_funding_date = &Launchh::first_funding_date($Launchh::account->{'account_id'},$Launchh::element_detail->{'element_id'});
+        
+        my ($year1, $month1, $day1, $hour1, $min1, $sec1) = $first_funding_date =~ /^(\d\d\d\d)\-(\d\d)-(\d\d)\s+(\d\d)\:(\d\d)\:(\d\d)/;
+        my $funding_day_diff = 0;        
+        $funding_day_diff = Delta_Days( $year1, $month1, $day1,$year2, $month2, $day2 ) if($year1 ne '');
+        if($funding_day_diff > $default_milestone){
+            ## Failed Milestone;
+            my $campaign_name =  $Launchh::element->{'element_name'} ;
+            my $campaign_amount =  $Launchh::element->{'element_amount'};
+            my $first_funding_time =  $first_funding_date ;            
+            
+            @tempArr = ("Campaign", "<strong>$campaign_name</strong> Goal of \$$campaign_amount", $first_funding_time);
+            push(@campaignArr, [@tempArr]);
+            push(@overallArr, [@tempArr]);
+
+            my @sorted_by_date = sort { $b->[2] cmp $a->[2] } @campaignArr;
+            @campaignArr = @sorted_by_date;
+            
+            @sorted_by_date = sort { $b->[2] cmp $a->[2] } @overallArr;
+            @overallArr = @sorted_by_date;
+        }
+        
+    }
+
+   #@updateFundingArr = ();
+    my $str = << "EOM";
+
+		<div class="section section-admin">
+			<div class="shell clearfix">
+            $verify_str
+				<div class="section-admin-inner">
+					<div class="section-head">
+						<h2>Activity Log</h2>
+					</div><!-- /.section-head -->
+
+					<div class="section-body">
+						<div class="admin-sidebar">
+							<ul class="widgets">
+                                         $profile_photo_str
+								<li class="widget widget-nav">
+EOM
+
+    $str .= html_menu();
+    
+    $str .= <<EOM;
+								</li><!-- /.widget widget-nav -->
+							</ul><!-- /.widgets -->
+						</div><!-- /.admin-sidebar -->
+
+						<div class="admin-content">
+							<div class="tabs tabs-activity">
+								<div class="tab-links">
+									<ul>
+										<li class="current"><a href="#tab-everything">Everything</a></li><!-- /.current -->
+										<li><a href="#tab-funding" class="tab-link-funding">Funding</a></li>
+										<li><a href="#tab-updates">Updates</a></li>
+										 <li><a href="#tab-campaign" class="tab-link-failed">Failed Campaigns</a></li>
+									</ul>
+								</div><!-- /.tab-links -->
+
+								<div class="tab-entries">
+									<div class="tab-entry current" id="tab-everything">
+										<table width="100%" border="0" cellspacing="0" cellpadding="0" class="table-activity">
+EOM
+        for(my $inx = 0; $inx <= $#overallArr; $inx++){
+            my $pushstr1 = "updates";
+            my $pushstr2 = "update";
+            $pushstr1 = $pushstr2 = "funding"  if($overallArr[$inx][0] eq 'Funding');
+            $pushstr1 = $pushstr2 = "campaign"  if($overallArr[$inx][0] eq 'Campaign');
+             my ($year, $month, $day) = $overallArr[$inx][2] =~ /^(\d\d\d\d)-(\d\d)-(\d\d)/;
+             $overallArr[$inx][2] = "$day/$month/$year";
+
+            
+            $str .= <<EOM;
+											<tr>
+												<td class="td-label">
+													<a href="#tab-$pushstr1" class="tab-trigger tab-trigger-$pushstr2">$overallArr[$inx][0]</a>
+												</td><!-- /.td-label -->
+												<td class="td-entry">$overallArr[$inx][1]</td><!-- /.td-entry -->
+												<td class="td-date">$overallArr[$inx][2]</td><!-- /.td-date -->
+											</tr>
+EOM
+        }
+
+        $str .= <<EOM;
+										</table><!-- /.table-activity -->
+									</div><!-- /#tab-everything.tab-entry -->
+
+									<div class="tab-entry" id="tab-funding">
+										<table width="100%" border="0" cellspacing="0" cellpadding="0" class="table-activity">
+EOM
+                        
+        ## Funding
+        for(my $inx = 0; $inx <= $#fundingArr; $inx++){
+             my ($year, $month, $day) = $fundingArr[$inx][2] =~ /^(\d\d\d\d)-(\d\d)-(\d\d)/;
+             $fundingArr[$inx][2] = "$day/$month/$year";
+             
+            $str .= <<EOM;
+											<tr>
+												<td class="td-label">
+													<a href="#tab-funding" class="tab-trigger tab-trigger-funding">$fundingArr[$inx][0]</a>
+												</td><!-- /.td-label -->
+												<td class="td-entry">$fundingArr[$inx][1]</td><!-- /.td-entry -->
+												<td class="td-date">$fundingArr[$inx][2]</td><!-- /.td-date -->
+											</tr>
+EOM
+        }
+
+     $str .= <<EOM;
+										</table><!-- /.table-activity -->
+									</div><!-- /#tab-funding.tab-entry -->
+
+									<div class="tab-entry" id="tab-updates">
+										<table width="100%" border="0" cellspacing="0" cellpadding="0" class="table-activity">
+EOM
+        ## UPDATE
+        for(my $inx = 0; $inx <= $#updateArr; $inx++){
+             my ($year, $month, $day) = $updateArr[$inx][2] =~ /^(\d\d\d\d)-(\d\d)-(\d\d)/;
+             $updateArr[$inx][2] = "$day/$month/$year";            
+             
+            $str .= <<EOM;
+											<tr>
+												<td class="td-label">
+													<a href="#tab-updates" class="tab-trigger tab-trigger-update">$updateArr[$inx][0]</a>
+												</td><!-- /.td-label -->
+												<td class="td-entry">$updateArr[$inx][1]</td><!-- /.td-entry -->
+												<td class="td-date">$updateArr[$inx][2]</td><!-- /.td-date -->
+											</tr>
+EOM
+        }
+#=begin
+     $str .= <<EOM;
+										</table><!-- /.table-activity -->
+									</div><!-- /#tab-funding.tab-entry -->
+
+									<div class="tab-entry" id="tab-campaign">
+										<table width="100%" border="0" cellspacing="0" cellpadding="0" class="table-activity">
+EOM
+## Failed Campaign
+#=beginm        
+
+        for(my $inx = 0; $inx <= $#campaignArr; $inx++){
+             my ($year, $month, $day) = $campaignArr[$inx][2] =~ /^(\d\d\d\d)-(\d\d)-(\d\d)/;
+             $campaignArr[$inx][2] = "$day/$month/$year";            
+             
+            $str .= <<EOM;
+											<tr>
+												<td class="td-label">
+													<a href="#tab-campaign" class="tab-trigger tab-trigger-campaign">$campaignArr[$inx][0]</a>
+												</td><!-- /.td-label -->
+												<td class="td-entry">$campaignArr[$inx][1]</td><!-- /.td-entry -->
+												<td class="td-date">$campaignArr[$inx][2]</td><!-- /.td-date -->
+											</tr>
+EOM
+        }
+#=cut        
+    $str.= <<EOM;
+										</table><!-- /.table-activity -->
+									</div><!-- /#tab-updates.tab-entry -->
+								</div><!-- /.tab-entries -->
+							</div><!-- /.tabs tabs-activity -->
+						</div><!-- /.admin-content -->
+					</div><!-- /.section-body -->
+				</div><!-- /.section-admin-inner -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-admin -->
+    
+EOM
+
+return $str;
+}
+
+sub html_update
+{   
+    
+    my ($update_title, $update_public, $update_email, $update_text);
+    my  $post_or_update = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Post&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";
+    
+    if($post_id ne ''){
+        &Launchh::select_user_update($Launchh::account->{'account_id'},$post_id);
+        #&Launchh::next_user_update();
+        $update_title =  $Launchh::user_update->{'user_update_title'} ;
+        $update_public =  $Launchh::user_update->{'user_update_public'} ;
+        $update_email =  $Launchh::user_update->{'user_update_sendemail'} ;
+        $update_text =  $Launchh::user_update->{'user_update_text'} ;
+        $update_text =~ s/<br data-mce-bogus[^>*]>//is;
+	
+        $post_or_update = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Update&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";
+    }
+    
+    my ($public_yes, $public_no, $email_yes, $email_no);
+    
+    if($update_public or $update_public eq '') { $public_yes = "checked"; }
+    else { $public_no = "checked"; }
+        
+    if($update_email or $update_email eq '') { $email_yes = "checked"; }
+    else { $email_no = "checked"; }
+
+
+    my $str = << "EOM";
+		<div class="section section-admin">
+			<div class="shell clearfix">
+                $verify_str
+				<div class="section-admin-inner">
+					<div class="section-head">
+						<h2>Post Update</h2>
+					</div><!-- /.section-head -->
+
+					<div class="section-body">
+						<div class="admin-sidebar">
+							<ul class="widgets">
+                                        $profile_photo_str
+                                        <li class="widget widget-nav">
+EOM
+
+    $str .= html_menu();
+    
+    $str .= <<EOM;
+								</li><!-- /.widget widget-nav -->
+							</ul><!-- /.widgets -->
+						</div><!-- /.admin-sidebar -->
+
+						<div class="admin-content">
+							<div class="form-update">
+								<form action="dashboard" method="post" onSubmit="return postUpdate();">
+									<div class="form-body">
+										<div class="form-row">
+											<div class="form-controls">
+												<input type="text" class="field"  style="width:92%;" placeholder="Title your post here" name="update_title" value="$update_title"/>
+											</div><!-- /.form-controls -->
+										</div><!-- /.form-row -->
+                                        
+EOM
+    $str.= html_js_tinymce();
+    
+    $str.= <<EOM;
+                                                    <div id="form-controls">                                                    
+                                                        <fieldset>
+                                                            <div class="editable"  id="update_val" style="width:92%; height:300px; min-height: 250px;">$update_text
+                                                            </div>
+                                                        </fieldset>
+                                                        
+                                                        <!--
+                                                            <textarea id="update_val" name="content" style="width:92%; height:300px; min-height: 250px;">$update_text</textarea>
+                                                        -->
+                                                    </div> <!-- form-controls -->
+                                                
+
+										<div class="form-row">
+											<label class="form-label">Post your update publicly?</label>
+											
+											<div class="form-controls">
+												<div class="radio custom-radio">
+													<input type="radio" id="profile-yes" name="profile" value="yes" $public_yes />
+
+													<label for="profile-yes">
+														<span class="custom-radio-fake"></span>
+
+														Yes
+													</label>
+												</div><!-- /.radio custom-radio -->
+
+												<div class="radio custom-radio">
+													<input type="radio" id="profile-no" name="profile" value="no" $public_no/>
+
+													<label for="profile-no">
+														<span class="custom-radio-fake"></span>
+
+														No
+													</label>
+												</div><!-- /.radio custom-radio -->
+											</div><!-- /.form-controls -->
+										</div><!-- /.form-row -->
+
+										<div class="form-row">
+											<label class="form-label">Send email to your subscribers?</label>
+
+											<div class="form-controls">
+												<div class="radio custom-radio">
+													<input type="radio" id="email-yes" name="email" value="yes" $email_yes />
+
+													<label for="email-yes">
+														<span class="custom-radio-fake"></span>
+
+														Yes
+													</label>
+												</div><!-- /.radio custom-radio -->
+
+												<div class="radio custom-radio">
+													<input type="radio" id="email-no" name="email" value="no" $email_no/>
+
+													<label for="email-no">
+														<span class="custom-radio-fake"></span>
+
+														No
+													</label>
+												</div><!-- /.radio custom-radio -->
+											</div><!-- /.form-controls -->
+										</div><!-- /.form-row -->
+
+									<div class="form-actions">
+										<!-- <a href="#" class="btn btn-small">Save</a> -->
+										<!-- <a href="#" class="btn btn-small">Preview</a> -->
+										<button type="submit" class="btn btn-small">$post_or_update</button>
+									</div><!-- /.form-actions -->
+									    <input type="hidden" name="mode" value="$mode">
+									    <input type="hidden" name="action" value="$actiontemp">
+									    <input type="hidden" name="post_id" value="$post_id">
+									    <input type="hidden" name="u" value="$username">
+									    <input type="hidden" name="update_text" id="update_text" value="">
+								</form>
+                                            </div><!-- /.form-body -->
+							</div><!-- /.form-update -->
+						</div><!-- /.admin-content -->
+					</div><!-- /.section-body -->
+				</div><!-- /.section-admin-inner -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-admin -->
+            <script>
+            
+                function postUpdate(){
+                    //alert(\$("#update_val").val());
+                    \$("#update_text").val(\$("#update_val").html());
+                    //alert(\$("#update_text").val());
+
+                    return true;
+                }
+            </script>
+            
+EOM
+
+return $str;
+}
+
+sub html_cancelled
+{       
+    my $str = << "EOM";
+		<div class="section section-admin">
+			<div class="shell clearfix">
+                $verify_str
+				<div class="section-admin-inner">
+					<div class="section-head">
+					</div><!-- /.section-head -->
+
+					<div class="section-body">
+						<div class="admin-sidebar">
+							<ul class="widgets">
+                                        $profile_photo_str
+                                        <li class="widget widget-nav">
+EOM
+
+    $str .= html_menu();
+    
+    $str .= <<EOM;
+								</li><!-- /.widget widget-nav -->
+							</ul><!-- /.widgets -->
+						</div><!-- /.admin-sidebar -->
+
+						<div class="admin-content">
+							<div class="form-update">
+                            
+                            <div class="warning">Your profile is marked inactive by the <a href="mailto:admin\@launchleader.com">admin\@launchleader.com</a> due to incomplete information.Please write us an email if you want to activate.</div>
+                            </div><!-- /.form-update -->
+						</div><!-- /.admin-content -->
+					</div><!-- /.section-body -->
+				</div><!-- /.section-admin-inner -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-admin -->
+            
+EOM
+
+return $str;
+}
+
+sub html_analytics
+{  
+    
+    my $funders_count = 0;
+    my $average_funding = 0;
+    my $current_fund = 0 ;
+    my $element_id = 0;
+    my $idea_name = "Total";
+    my $launch_date = &Launchh::first_funding_date_by_account($Launchh::account->{'account_id'});
+    if( $launch_date =~ /^(\d\d\d\d)\-(\d\d)-(\d\d)\s+(\d\d)\:(\d\d)\:(\d\d)/){
+        $launch_date = $2."/". $3."/".$1;
+   }
+    else{
+        $launch_date = "TBD" if($launch_date eq '');
+    }
+    
+    my $fund_element_sql_str = "";
+    my $element_sql_str = "";
+    if($ce_id > 0){
+        $fund_element_sql_str = " AND funding_details.element_id = '$ce_id'";
+        $element_sql_str = " AND element_id = '$ce_id'";
+        $element_id = $ce_id;
+    }
+    
+    $current_fund = ceil(&Launchh::total_funded("WHERE funding_details.account_id = $Launchh::account->{'account_id'} $fund_element_sql_str" ));
+    $funders_count = &Launchh::total_funders("WHERE funding_details.account_id = $Launchh::account->{'account_id'} $fund_element_sql_str" );
+    my $ll_funders = &Launchh::find_launchleader_funders("WHERE account_funder_email IN ('rkmohajan\@gmail.com', 'ashok.kamal\@bennuworld.com')" );
+    
+    $average_funding = ceil ($current_fund / $funders_count) if($funders_count > 0);
+    my $plural_str = '';
+    $plural_str = 's' if($funders_count > 1);
+    
+    
+    my $funded_via_launchleader =  ceil(&Launchh::total_funded("WHERE funding_details.account_id = $Launchh::account->{'account_id'} AND account_funder_id IN($ll_funders) $fund_element_sql_str" ));
+    my $funded_via_external = $current_fund - $funded_via_launchleader;
+    
+    my $selected = "";
+    
+    $selected = "selected" if($ce_id < 1);
+    
+    my $select_str = "<div class=\"select\"><select   style=\"width:250px;\" data-placeholder=\"Select Campaign\" id=\"campaign_select\" name=\"campaign_select\" class=\"chosen-select\"  tabindex=\"1\" onChange=\"javascript:loadCampaignGraph(this.value);\">
+                        <option>Select Campaign</option>
+                        <option value=\"-1\" $selected> All Campaigns</option> \n  
+  ";
+    
+    &Launchh::select_element_details("WHERE account_id = $Launchh::account->{'account_id'} AND element_detail_status = '1'" );
+    while(&Launchh::next_element_detail()){
+        &Launchh::select_elements("WHERE element_status=1 AND element.element_id = $Launchh::element_detail->{'element_id'}");
+        &Launchh::next_element();
+        if($Launchh::element->{'element_id'} eq '') {
+            next;
+        }
+        
+ 	
+        my $element_name = $Launchh::element->{'element_name'};
+        my $eid = $Launchh::element->{'element_id'};
+        #$element_name =~ s/([^^A-Za-z0-9\-_.!~*'()])/ sprintf "%%%0x", ord $1 /eg;
+        
+        $selected = "";
+        if($ce_id == $eid){
+            $selected = "selected" ;
+            $idea_name = $element_name;
+        }
+	
+        $select_str .= "<option value=\"$eid\" $selected>$element_name</option>\n";
+        
+        #$element_name =~ s/\s+/\%20/g;        
+        #my $fund_percentage = 20;        
+}
+    $select_str  .= "</select>
+    </div>
+    <br>
+    ";
+    my $str = "";
+    
+    my $str_funding_by_date = "";
+    my $raised_amount = 0;
+    my $comma_str = ','
+    &Launchh::funding_group_by_date($Launchh::account->{'account_id'}, $element_id);
+    while(&Launchh::next_funding_group_by_date()){            
+        my $funding_date = $Launchh::funding_group_by_date->{'date'};
+        
+        if( $funding_date =~ /^(\d\d\d\d)\-(\d\d)-(\d\d)/){
+            $funding_date = $2."/". $3;
+        }
+        $raised_amount += $Launchh::funding_group_by_date->{'fund_amount_total'};
+        $str_funding_by_date .= ",\n";
+        $str_funding_by_date .="['".$funding_date."', ".$raised_amount."]";
+        
+    }
+
+if($funded_via_launchleader + $funded_via_external > 0 ){
+    $str .= << "EOM";
+        <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+        <!-- Pie ChArt!!! -->
+         <script type="text/javascript">
+
+              // Load the Visualization API and the piechart package.
+              google.load('visualization', '1.0', {'packages':['corechart']});
+
+              // Set a callback to run when the Google Visualization API is loaded.
+              google.setOnLoadCallback(drawChart);
+
+              // Callback that creates and populates a data table,
+              // instantiates the pie chart, passes in the data and
+              // draws it.
+              
+              function drawChart() {
+                // Create the data table.
+                var data = new google.visualization.DataTable();
+                data.addColumn('string', 'Fund Name');
+                data.addColumn('number', 'Amount');
+                data.addRows([
+                  ['Funded via LaunchLeader', $funded_via_launchleader],
+                  ['Funded via External Sources', $funded_via_external]
+                  ]);
+
+                // Set chart options
+                var options = {
+                               'width':575,
+                               'height':475,
+                                colors: [ '#88b4ff', '#88c7ff'],
+                                legend: 'none'
+                };
+
+                // Instantiate and draw our chart, passing in some options.
+                var chart = new google.visualization.PieChart(document.getElementById('pi_chart_div'));
+                chart.draw(data, options);
+              }
+            </script>
+EOM
+}
+
+    if($str_funding_by_date ne ''){
+        $str .=<<EOM;
+            <script type="text/javascript">
+                      google.load("visualization", "1", {packages:["corechart"]});
+                      google.setOnLoadCallback(drawChart);
+                      function drawChart() {
+                        var data = google.visualization.arrayToDataTable([
+                          ['Date',  'Progress']
+EOM
+
+    $str.=<<EOM;
+                        $str_funding_by_date
+                        ]);
+
+                        var options = {
+                          hAxis: {title: 'Date',  titleTextStyle: {color: '#333'}},
+                          vAxis: {minValue: 0}
+                        };
+
+                        var chart = new google.visualization.AreaChart(document.getElementById('funding_growth_div'));
+                        chart.draw(data, options);
+                      }
+            </script>
+EOM
+        }
+    $str.=<<EOM;
+
+		<div class="section section-admin">
+			<div class="shell clearfix">
+            $verify_str
+				<div class="section-admin-inner">
+					<div class="section-head">
+						<h2>Analytics</h2>
+					</div><!-- /.section-head -->
+
+					<div class="section-body">
+						<div class="admin-sidebar">
+							<ul class="widgets">
+                                        $profile_photo_str
+                                        <li class="widget widget-nav">
+EOM
+
+    $str .= html_menu();
+    
+  # $idea_name  = $select_str;
+    
+    $str .= <<EOM;
+								</li><!-- /.widget widget-nav -->
+							</ul><!-- /.widgets -->
+						</div><!-- /.admin-sidebar -->
+						<div class="admin-content">
+							<div class="admin-analytics">
+								<div class="analytics-head">
+									<ul>
+										<li>
+											<strong>$idea_name</strong>
+											Launched $launch_date
+										</li>
+										<li>
+											<strong>\$$current_fund</strong>
+
+											Funded
+										</li>
+										<li>
+											<strong>$funders_count</strong>
+
+											Funder$plural_str
+										</li>
+
+										<li>
+											<strong>\$$average_funding</strong>
+
+											Avg.Fund Amount
+										</li>
+									</ul>
+								</div><!-- /.analytics-head -->
+                                $select_str
+								<div class="analytics-body">
+									<div class="analytics-graph">
+										<h4>Funding Progress</h4>
+
+										<div class="line-graph">
+                                            <div id="funding_growth_div" style="width: 693px; height: 430px;"><br><br><br><p><h4>(Sorry, no funding found for this campaign. Please select another campaign)</h4></p><br><br><br></div>
+											<!-- <img src="css/images/temp/graph1.jpg" alt="" width="693" height="430" class="graph-placeholder" /> -->
+											<!-- PLACEHOLDER GRAPH -->
+										</div><!-- /.line-graph -->
+									</div><!-- /.analytics-graph -->
+
+									<div class="analytics-graph">
+										<h4>Funding Sources</h4>
+                                        <div class="circle-graph">
+                                            <div id="pi_chart_div" style="width: 575px; height: 475px;"><br><br><br><p><h4>(Sorry, no funding found for this campaign. Please select another campaign)</h4></p><br><br><br></div>
+
+											<!--<img src="css/images/temp/graph2.jpg" alt="" width="430" height="509" class="graph-placeholder" /> -->
+											<!-- PLACEHOLDER GRAPH -->
+EOM
+
+    if($funded_via_launchleader + $funded_via_external > 0 ){
+            $str .=<<"EOM";
+											<div class="circle-graph-detail">
+												<ul>
+													<li>Funded via LaunchLeader <strong>\$$funded_via_launchleader</strong></li>
+													<li>Funded via External Sources <strong>\$$funded_via_external</strong></li>
+												</ul>
+											</div><!-- /.circle-graph-detail -->
+EOM
+    }
+        $str .=<<"EOM";
+                                        </div><!-- /.circle-graph -->
+									</div><!-- /.analytics-graph -->
+								</div><!-- /.analytics-body -->
+							</div><!-- /.admin-analytics -->
+						</div><!-- /.admin-content -->
+					</div><!-- /.section-body -->
+				</div><!-- /.section-admin-inner -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-admin -->
+        <script src="/js/chosen.jquery.js" type="text/javascript"></script>
+
+        <script type="text/javascript">
+        
+                \$(".campaign_select").chosen();
+
+                var config = {
+                                '.chosen-select' : {}
+                }
+                for (var selector in config) {
+                    \$(selector).chosen(config[selector]);
+                }
+                
+            \$(document).ready(function() {            
+                \$(\"#campaign_select_chosen\").width(250);
+              }       
+            );            
+            
+            function loadCampaignGraph(value){
+                var locationStr = "dashboard?mode=analytics&pmode=$pmode";
+                
+                if(value > 0) {
+                    locationStr += "&campaign_id="+value;
+                }
+                location.href=locationStr;
+            }
+
+
+    </script> 
+
+            
+EOM
+
+return $str;
+}
+
+sub html_completed
+{   
+
+    $project_id = $Launchh::uid;
+    
+    my  $post_or_update = "Update";
+    
+    my $str = << "EOM";
+		<div class="section section-admin">
+			<div class="shell clearfix">
+            $verify_str
+				<div class="section-admin-inner">
+					<div class="section-head">
+						<h2>Update Completed Tools</h2>
+					</div><!-- /.section-head -->
+
+					<div class="section-body">
+						<div class="admin-sidebar">
+							<ul class="widgets">
+                                        $profile_photo_str
+                                        <li class="widget widget-nav">
+EOM
+
+    $str .= html_menu();
+    
+    $str .= <<EOM;
+								</li><!-- /.widget widget-nav -->
+							</ul><!-- /.widgets -->
+						</div><!-- /.admin-sidebar -->
+
+						<div class="admin-content">
+							<div class="form-update">
+								<form action="dashboard" method="post" onSubmit="return postUpdate();">
+									<div class="form-body">
+                                    <br><br>
+                                        
+EOM
+        my @elementArr;
+        my $element_inx = 9;
+        &Launchh::select_element_details("WHERE account_id = $Launchh::account->{'account_id'} AND element_detail_status = '1'  ORDER BY element_id ASC" );
+        while(&Launchh::next_element_detail()){
+            $elementArr[$element_inx++] = $Launchh::element_detail->{'element_id'} if($Launchh::element_detail->{'element_id'} > 8);
+        }
+        
+        for(my $inx = 1; $inx < $element_inx; $inx++){
+            my $eID = $inx; 
+            $eID = $elementArr[$inx] if($inx > 8); 
+            
+            &Launchh::select_elements("WHERE element_status=1 AND element.element_id = '$eID' AND (project_id = '0' or project_id = '$project_id')");
+            &Launchh::next_element();
+            if($Launchh::element->{'element_id'} eq '') {
+                next;
+            }
+            
+    #&Launchh::select_elements("WHERE element_status = '1' and element_note = '' and (project_id = '0' or project_id = '$project_id')");
+    #while(&Launchh::next_element()){
+        my $placeholder_str = $Launchh::element->{'element_completed_placeholder'};
+        $placeholder_str = "Custom campaign URL here" if($Launchh::element->{'element_note'} eq 'custom');
+
+        my $note_str = $Launchh::element->{'element_completed_note'};
+        $note_str = "Paste your custom campaign URL here (i.e. Dropbox link) after you get it made. Visitors can view it directly from your profile page." if($Launchh::element->{'element_note'} eq 'custom');
+    
+        my $completed_tools_val = find_ct_values($Launchh::element->{'element_id'}, $Launchh::uid, $project_id);
+         
+        $str.= <<EOM;
+            <div class="form-row">
+                <label class="form-label">$Launchh::element->{'element_name'}:
+                            <br><small>$note_str</small>
+                            </label>											
+                <div class="form-controls">
+                                    <input type="text" class="field" placeholder="$placeholder_str" name="element_$Launchh::element->{'element_id'}" value="$completed_tools_val"/>
+                </div><!-- /.form-controls -->
+            </div><!-- /.form-row -->
+EOM
+    }
+            $str.= <<EOM;
+                                                    
+
+
+                                                    <div class="form-actions">
+                                                            <a href="#" class="btn btn-small">Save</a>
+                                                            <!-- <a href="#" class="btn btn-small">Preview</a> -->
+                                                            <button type="submit" class="btn btn-small">$post_or_update</button>
+                                                    </div><!-- /.form-actions -->
+                                                    
+                                                    <input type="hidden" name="mode" value="$mode">
+                                                    <input type="hidden" name="u" value="$username">
+                                                </form>
+                                            </div><!-- /.form-body -->
+							</div><!-- /.form-update -->
+						</div><!-- /.admin-content -->
+					</div><!-- /.section-body -->
+				</div><!-- /.section-admin-inner -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-admin -->
+            
+EOM
+
+return $str;
+}
+
+sub find_ct_values{
+    my $element_id = shift;
+    my $account_id = shift;
+    my $project_id = shift;
+    
+    &Launchh::select_completed_tools("WHERE element_id = '$element_id' and account_id = '$account_id' and project_id = '$project_id'");
+    &Launchh::next_completed_tools();
+    my $completed_tools_val = $Launchh::completed_tools->{'completed_tools_url'};
+    print STDERR "completed_tools_val [$completed_tools_val] \n\n";
+
+    return $completed_tools_val;
+}
+
+sub html_account_settings
+{   
+    my $passstatus = shift;
+    
+    my  $post_or_update = "Update";
+    
+    my $pass_update_result = "";
+    $pass_update_result = "Successfully password updated" if($passstatus eq 'success');
+    $pass_update_result = "Incorrect Password!" if($passstatus eq 'incorrect');
+    
+    
+    my $str = << "EOM";
+		<div class="section section-admin">
+			<div class="shell clearfix">
+            $verify_str
+				<div class="section-admin-inner">
+					<div class="section-head">
+						<h2>Reset Your Password</h2>
+						<br><small>$pass_update_result</small>
+					</div><!-- /.section-head -->
+
+					<div class="section-body">
+						<div class="admin-sidebar">
+							<ul class="widgets">
+                                        $profile_photo_str
+                                        <li class="widget widget-nav">
+EOM
+
+    $str .= html_menu();
+    
+    $str .= <<EOM;
+								</li><!-- /.widget widget-nav -->
+							</ul><!-- /.widgets -->
+						</div><!-- /.admin-sidebar -->
+
+						<div class="admin-content">
+							<div class="form-update" style="width:550px;">
+								<form action="dashboard" method="post" name="resetp" onSubmit="return resetPassword();">
+									<div class="form-body">
+EOM
+    
+    $str.= <<EOM;
+                                                    <br><br>
+                                                    <div class="form-row cf">
+											<label class="form-label">New Password: </label>											
+											<div class="form-controls">
+                                                                <input type="password" class="field" placeholder="New Password" name="newpass" value=""/>
+											</div><!-- /.form-controls -->
+										</div><!-- /.form-row -->
+                                        
+                                                    <div class="form-row cf">
+											<label class="form-label">Confirm Password: </label>											
+											<div class="form-controls">
+                                                                <input type="password" class="field" placeholder="Confirm Password" name="confpass" value=""/>
+											</div><!-- /.form-controls -->
+										</div><!-- /.form-row -->
+                                        
+                                                    <div class="form-row cf">
+											<label class="form-label">Current Password: </label>											
+											<div class="form-controls">
+                                                                <input type="password" class="field" placeholder="Current Password" name="currentpass" value=""/>
+											</div><!-- /.form-controls -->
+										</div><!-- /.form-row -->
+                                        
+                                                    <div class="form-row cf">
+                                                            <label class="form-label">&nbsp;</label>											                                        
+											<div class="form-controls">
+                                                                    <button type="submit" class="btn btn-small">&nbsp; &nbsp; &nbsp; Reset &nbsp;&nbsp; &nbsp; </button>
+											</div><!-- /.form-controls -->
+										</div><!-- /.form-row -->
+                                                    
+                                                    <input type="hidden" name="mode" value="$mode">
+                                                    <input type="hidden" name="u" value="$username">
+                                                </form>
+                                            </div><!-- /.form-body -->
+							</div><!-- /.form-update -->
+						</div><!-- /.admin-content -->
+					</div><!-- /.section-body -->
+				</div><!-- /.section-admin-inner -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-admin -->
+        
+        <script>
+                 function resetPassword(){
+                        var password=document.resetp.newpass.value;
+                        var cpassword=document.resetp.confpass.value;        
+
+                        if (password != cpassword) {
+                                alert ('Confirm Password doesn\\'t match!!!');
+                                return false;
+                        }
+                        document.resetp.submit();       
+                 }         
+         </script>
+EOM
+
+return $str;
+}
+
+sub html_js_tinymce
+{
+    
+    my $str = <<EOM;
+                                                 <script src="//tinymce.cachefly.net/4.1/tinymce.min.js"></script>
+                                                 <script type="text/javascript">
+                                                                tinymce.init({
+                                                                    selector: "div.editable",
+                                                                    inline: true,
+                                                                    plugins: [
+                                                                        "advlist autolink lists link image anchor",
+                                                                        "searchreplace  ",
+                                                                        "insertdatetime media contextmenu paste"
+                                                                    ],
+                                                                    toolbar: "insertfile undo redo  | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image",
+                                                                    autosave_ask_before_unload: false
+                                                                });
+                                                </script>
+EOM
+  
+  return $str;
+}
+
+sub html_menu
+{
+    my ($update_class, $analytic_class, $activity_class, $funders_class, $completed_class, $reset_pass_class, $edit_profile_class );
+    $update_class = "class=\"current\"" if($mode eq 'update');
+    $analytic_class = "class=\"current\"" if($mode eq 'analytics');
+    $funders_class = "class=\"current\"" if($mode eq 'funderslog');
+    $activity_class = "class=\"current\"" if($mode eq 'activity');
+    $completed_class = "class=\"current\"" if($mode eq 'completed');
+    $reset_pass_class = "class=\"current\"" if($mode eq 'account');
+    $edit_profile_class = ""; 
+
+    
+    my $str = <<EOM;
+									<div class="widget-body">
+										<h4>Home</h4>
+										<ul>
+											<li $update_class><a href="dashboard?mode=update&pmode=$pmode">Post Update</a></li><!-- /.current -->
+                                             <li $analytic_class><a href="dashboard?mode=analytics&pmode=$pmode">View Analytics</a></li>
+											<li $activity_class><a href="dashboard?mode=activity&pmode=$pmode">Activity Log</a></li>
+											<li $funders_class><a href="dashboard?mode=funderslog&pmode=$pmode">Funders Log</a></li>
+											<li $completed_class><a href="dashboard?mode=completed&pmode=$pmode">Completed Tools</a></li>
+											<li $edit_profile_class><a href="account?pmode=$pmode">Edit My Profile</a></li>
+											<li ><a href="profile?u=$username&pmode=$pmode">View My Profile</a></li>
+											<li $reset_pass_class><a href="dashboard?mode=account&pmode=$pmode">Reset Password</a></li>
+										</ul>
+									</div><!-- /.widget-body -->
+EOM
+  
+  return $str;
+}
+
+sub print_header
+{
+   my $header = &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+#$user_header_str = " of ".$Launchh::account->{'account_name_first'} if($Launchh::account->{'account_name_first'} ne '');
+   my $rand = rand(10000);
+   $header =~ s/XXXTITLEXXX/USER PROFILE/is;
+   $header =~ s/TITLE_FOR_SOCIAL_SITE/$og_title/gs;
+   $header =~ s/DASHBOARDSTR/<li><a href="dashboard">My Dashboard<\/a><\/li>/is;
+   $header =~ s/SIGNUPSTR//is;
+   
+   $header =~ s/<li class="separator">\s*<a href=".*?login">Login<\/a>/<li class="separator"><a href="..\/logout?pmode=$pmode">Logout<\/a>/is  if($pmode ne '');        
+   $header =~ s/<li class="separator">\s*<a href=".*?login">Login<\/a>/<li class="separator"><a href="..\/logout?$rand">Logout<\/a>/is ;        
+
+    if( $pmode ne '' ){
+        $header =~ s/faq">/faq\?pmode=$pmode">/is;   
+        $header =~ s/discover">/discover\?pmode=$pmode">/is;   
+        $header =~ s/privacy"/privacy\?pmode=$pmode"/is;   
+        $header =~ s/dashboard"/dashboard\?pmode=$pmode"/is;   
+        $header =~ s/terms"/terms\?pmode=$pmode"/is;   
+	}
+    
+   print $header;
+}
+
+sub print_footer
+{
+    
+   my $footer = &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+
+    if( $pmode ne '' ){
+        $footer =~ s/privacy"/privacy\?pmode=$pmode"/is;   
+        $footer =~ s/terms"/terms\?pmode=$pmode"/is;   
+    }
+    
+    print $footer;
+}
+
+
+sub send_update_broadcast{
+	## Sending Email Block
+    my $post_id = shift;
+    my $update_title = shift;
+    my $update_text = shift;
+    
+    my $name = $Launchh::account->{'account_name_first'};
+    $name =~ s/'//gis;
+    
+	my $to = '';
+	my $subject = "Project Update by $name on LaunchLeader";
+	my $body = "";
+	my $from = $Launchh::FROM_EMAIL_ADDRESS;
+	my $cc = '';	
+	my $admin_email = $Launchh::SIVI_ADMIN_EMAIL;	
+    #my $admin_email = "zulkernine\@gmail.com";
+    #$admin_email = "rkmohajan+admin\@gmail.com";    
+    #$cc = $admin_email;
+    my $bcc = $admin_email;
+    
+    
+    my $page_url = 'http';
+    if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off") {
+        $page_url .= "s";
+    }
+    $page_url .= "://"; 
+
+    $page_url .= $ENV{SERVER_NAME};
+    my $profile_url = $page_url . "/profile/$Launchh::u";
+    my $signup_url = $page_url . "/signup";
+    my $discover_url = $page_url . "/discover";
+    
+    my $project_name = "";
+    
+    &Launchh::select_account_details("WHERE account_id=$Launchh::uid AND detail_id=36 AND account_detail_status=1 LIMIT 1");
+    &Launchh::next_account_detail();   
+    $project_name = $Launchh::account_detail->{'account_detail_desc'};
+    
+    my $message = "";
+    my $header  ="Content-Type: text/html; charset=ISO-8859-1\n\n <html><body>";
+    
+        $message = "$header
+Here’s a new update from <a href=\"$profile_url\">$name</a> about <a href=\"$profile_url\">$project_name</a>
+<br><br>
+=============================================================<br>
+<b>$update_title</b><br>
+$update_text<br><br>
+=============================================================<br>
+Thanks for subscribing to updates.
+Do you have your own startup idea? <a href=\"$signup_url\">Launch</a> your own campaign to get funding!<br><br>
+Thanks,<br><br>
+The LaunchLeader Team<br>
+</body></html>
+";    
+
+$body = $message;    
+
+    &Launchh::select_subscriber_by_user($Launchh::account->{'account_id'}, $Launchh::account->{'account_id'});
+    while(&Launchh::next_subscriber()){
+        
+        $to = $Launchh::subscriber->{'subscriber_email'};
+        print STDERR "suscriber_email : [$to]\n";
+        
+        ## Email sent to subscribers         
+        &Launchh::sendmail($to, $subject, $body, $from, $cc, '');
+        print STDERR "Email sent to :$to for UPDATE for [$name]\n";
+    }
+    ## Email sent to admin
+    &Launchh::sendmail($Launchh::account->{'account_email'}, $subject, $body, $from, $cc, $bcc);
+    print STDERR "Email sent to : ADMIN and Entrepreneur for UPDATE for [$name]\n";
+    
+    #&Launchh::sendmail(, $subject, $body, $from, $cc);
+    #print STDERR "Email sent to : Entrepreneur for UPDATE for [$name]\n";
+    
+    
+    $Launchh::email_disburse->{'email_type'} = 'subscribe';
+    $Launchh::email_disburse->{'email_disburse_status'} = '1';
+    $Launchh::email_disburse->{'email_disburse_ref'} = $post_id;
+    $Launchh::email_disburse->{'email_disburse_datetime'} = 'NOW()';
+    &Launchh::insert_email_disburse();
+}

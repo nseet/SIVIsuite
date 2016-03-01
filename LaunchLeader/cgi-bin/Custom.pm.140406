@@ -1,0 +1,77 @@
+sub get_next_question_id
+{
+   my $question_id = shift || return;
+   my $category_id = shift || return;
+#   &select_question($question_id);
+
+   my $statement = "SELECT question_id FROM question WHERE category_id=$category_id AND question_id > $question_id ORDER BY question_id LIMIT 1";
+   print STDERR $statement;
+
+   my $sth = &Execute($statement,$dbh);
+
+   return &Fetchone($sth);
+}
+
+sub get_point_total
+{
+   my $account_id = shift || return;
+
+   #xxx needs to be a smarter calculator!
+   my $statement = "select sum(question_note) from entry,question,answer where entry_status=$account_id and entry_type=question.question_id and answer.question_id=question.question_id and answer_note like 'Right!%' and (entry_desc = answer_id OR entry_desc =concat(answer_desc, ' ' ,answer_id) OR upper(entry_desc) =upper(concat(answer_desc, ' ' ,answer_id)))";
+   my $sth = &Execute($statement,$dbh);
+   my $points = &Fetchone($sth);
+
+   $statement = "select sum(reward_points) from account_reward,reward where account_reward.reward_id=reward.reward_id and reward_status=1 and account_reward_status=1 and account_id=$account_id";
+   $sth = &Execute($statement,$dbh);
+   my $rewards = &Fetchone($sth);
+
+   return int($points - $rewards);
+}
+
+sub get_category_point_total
+{
+   my $category_id = shift || return;
+   
+   my $statement = "select sum(question_note) from question where category_id = $category_id AND question_status=1";
+   my $sth = &Execute($statement,$dbh);
+   my $category_total = &Fetchone($sth);
+
+   return int($category_total);
+}
+
+sub get_account_category_point_total
+{
+   my $account_id = shift || return;
+   my $category_id = shift || return;
+
+   #xxx needs to be a smarter calculator!
+   my $statement = "select sum(question_note) from entry,question,answer where category_id=$category_id and entry_status=$account_id and entry_type=question.question_id and answer.question_id=question.question_id and answer_note like 'Right!%' and (entry_desc = answer_id OR entry_desc =concat(answer_desc, ' ' ,answer_id) OR upper(entry_desc) =upper(concat(answer_desc, ' ' ,answer_id)))";
+   my $sth = &Execute($statement,$dbh);
+   my $points = &Fetchone($sth);
+
+   return int($points);
+}
+
+sub get_entry_count_by_category
+{
+   my $account_id = shift || return;
+   my $category_id = shift || return;
+
+   my $statement = "select count(entry_id) from entry where entry_type in(select question_id from question where category_id=$category_id) and entry_status=$account_id";
+   my $sth = &Execute($statement,$dbh);
+   my $entry_count = &Fetchone($sth);
+
+   return int($entry_count);
+}
+
+sub get_entries_by_category
+{
+   my $account_id = shift || return;
+   my $category_id = shift || return;
+   my $statement = "SELECT entry_name, entry_note FROM entry, question WHERE entry_type=question_id AND entry_status=$account_id and entry_note IS NOT NULL AND question.category_id=$category_id";
+
+   my $sth = &Execute($statement,$dbh);
+   return $sth ; 
+}
+
+1;

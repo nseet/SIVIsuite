@@ -1,0 +1,49 @@
+#!/usr/bin/perl
+
+#use lib '../../siviacademy.com/cgi-bin';
+use lib '../cgi-bin';
+use lib '../util';
+use Launchh;
+use strict;
+
+my $account_id = $Launchh::_query->param('account_id') || 0;
+my $element_id = $Launchh::_query->param('element_id') || 0;
+my $status = $Launchh::_query->param('status') || 0;
+my $edid = $Launchh::_query->param('edid') || 0;
+print $Launchh::_query->header();
+
+my $campaign_status = 80002;
+my $cancelled_status = 80004;
+my $incomplete_status = 79999;
+
+&Launchh::select_stripe_connect("WHERE account_id= '$account_id'");
+&Launchh::next_stripe_connect();              
+my $stripe_connect_id = $Launchh::stripe_connect_detail->{'stripe_connect_id'};
+
+my $project_status = $campaign_status;
+
+if($stripe_connect_id eq ''){
+    $project_status = $incomplete_status;
+}
+
+if($status == 2){
+    $project_status = $cancelled_status;
+}
+print STDERR "STS: [$stripe_connect_id][$status][$project_status]\n";
+
+
+if(!$account_id or !$element_id) {
+    exit;
+}
+if($element_id eq 'all' or $element_id eq 'allp'){
+    #$Launchh::account->{'account_id'} = $account_id;
+    &Launchh::read_account();
+    $Launchh::account->{'account_id'} = $account_id;
+    &Launchh::update_account("account_status='$project_status'"); 
+}
+else{
+	$Launchh::element_detail->{'element_detail_id'} =  $edid;
+	&Launchh::update_element_detail("element_detail_status = '$status'");
+}
+print "success";
+

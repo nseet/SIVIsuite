@@ -1,0 +1,183 @@
+#!/usr/bin/perl
+
+use lib '../cgi-bin';
+use lib '../util';
+
+use Launchh;
+use strict;
+use Data::Dumper;
+    
+#$Launchh::HFILE = "empty-ll2.html";
+
+my $username = $Launchh::_query->param('uname');
+my $tosend = $Launchh::_query->param('tosend') || 0; 
+my $message = $Launchh::_query->param('message'); 
+#my $message = $Launchh::_query->param('message') ; 
+
+
+$Launchh::u = $Launchh::_query->param('uname');
+
+&Launchh::select_accounts("WHERE account_username='$Launchh::u'");
+&Launchh::next_account();
+
+my $toname = $Launchh::account->{'account_name_first'}. " ". $Launchh::account->{'account_name_last'}; 
+
+print $Launchh::_query->header();
+print html_report_violation();
+&Launchh::clean_exit();
+
+sub html_report_violation
+{
+		
+	my $update_str = << "EOM";
+    
+<div class="popup popup-violation">
+	<div class="popup-head">
+		<h>Please let us know why you think this idea violates our terms of service?</h2>
+        <div id="confirmation"></div>
+	</div><!-- /.popup-head -->
+
+	<div class="popup-body">
+		<div class="form form-report">
+			<form onsubmit="return sendEmail();" id="myForm">
+				<div class="form-body">
+					<div class="form-row">
+						<div class="form-controls">
+							<div class="radio custom-radio">
+								<input type="radio" name="violation_group" id="violation-spam" value="Entrepreneur is spamming" onclick="setval(this.value);"/>
+
+								<label for="violation-spam">
+									<span class="custom-radio-fake"></span>
+
+									Entrepreneur is spamming
+								</label>
+							</div><!-- /.radio custom-radio -->
+							
+							<div class="radio custom-radio">
+								<input type="radio" name="violation_group" id="violation-offensive" value="Idea is offensive" onclick="setval(this.value);"/>
+
+								<label for="violation-offensive">
+									<span class="custom-radio-fake"></span>
+
+									Idea is offensive
+								</label>
+							</div><!-- /.radio custom-radio -->
+							
+							<div class="radio custom-radio">
+								<input type="radio" name="violation_group" id="violation-intellectual"  value="Idea is violating intellectual property" onclick="setval(this.value);"/>
+
+								<label for="violation-intellectual">
+									<span class="custom-radio-fake"></span>
+
+									Idea is violating intellectual property
+								</label>
+							</div><!-- /.radio custom-radio -->
+							
+							<div class="radio custom-radio">
+								<input type="radio" name="violation_group" id="violation-fraudulent" value="Idea is fraudulent " onclick="setval(this.value);"/>
+
+								<label for="violation-fraudulent">
+									<span class="custom-radio-fake"></span>
+
+									Idea is fraudulent 
+								</label>
+							</div><!-- /.radio custom-radio -->
+						</div><!-- /.form-controls -->
+					</div><!-- /.form-row -->
+				</div><!-- /.form-body -->
+			       <input type="hidden" name="tosend" id="tosend" value="1"/>
+                      <input type="hidden" name="username" id="username" value="$username"/>
+                      <input type="hidden" name="reported" id="reported" value=""/>
+
+				<div class="form-actions">
+					<input type="submit" value="Report Idea" class="btn btn-medium" />
+				</div><!-- /.form-actions -->
+			</form>
+		</div><!-- /.form form-report -->
+	</div><!-- /.popup-body -->
+</div><!-- /.popup -->
+
+<script>
+            function setval(val1){
+                document.getElementById("reported").value = val1;
+            }
+            
+            function sendEmail() {
+                // 1. Create XHR instance - Start
+                
+                var xhr;
+                if (window.XMLHttpRequest) {
+                    xhr = new XMLHttpRequest();
+                }
+                
+                else if (window.ActiveXObject) {
+                    xhr = new ActiveXObject("Msxml2.XMLHTTP");
+                }
+                else {
+                    throw new Error("Ajax is not supported by this browser");
+                }
+                
+                // 1. Create XHR instance - End
+                
+                // 2. Define what to do when XHR feed you the response from the server - Start
+                
+                xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                        if (xhr.status == 200 && xhr.status < 300) {
+                            // document.getElementById('loadix').innerHTML = xhr.responseText;
+                            if(xhr.responseText == "success"){
+                                \$('#confirmation').html("<i>Account Reported successfully</i>");
+                                //alert("Account Reported successfully");
+                                \$('#tosend').val(0);
+                            }
+                            else {
+                                \$('#confirmation').html("<i>Account reporting failed. Please contact administrator</i>");
+                                //alert("Account reporting failed. Please contact administrator");
+                            }
+                        }
+                    }
+                }
+                // 2. Define what to do when XHR feed you the response from the server - Start
+
+                
+                var tosend = document.getElementById("tosend").value;
+                var username = document.getElementById("username").value;
+                var reported = document.getElementById("reported").value;
+                if(reported == ''){
+                    alert("Please select any option to report");
+                    return false;
+                }
+                
+                var post_str = "reported=" + reported+"&username="+username;
+		
+                // 3. Specify your action, location and Send to the server - Start 
+                if(tosend == 1){
+                    xhr.open('POST', 'ajax/launchmailer');
+                    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                    xhr.send(post_str);
+                }
+                // 3. Specify your action, location and Send to the server - End
+
+                return false;
+          }
+  
+</script>
+
+EOM
+		
+
+return $update_str;
+
+}
+
+
+
+sub trim
+{
+    my $str = shift;
+    
+    $str =~ s/^\s+//;
+    $str =~ s/\s+$//;
+    
+    return $str;
+}

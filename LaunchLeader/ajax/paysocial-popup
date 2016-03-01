@@ -1,0 +1,120 @@
+#!/usr/bin/perl
+
+use lib '../cgi-bin';
+use lib '../util';
+use Launchh;
+use strict;
+use Data::Dumper;
+use URI::Escape;
+    
+#$Launchh::HFILE = "empty-ll2.html";
+
+my $trailer = $Launchh::_query->param('trailer');
+my $trailto = $Launchh::_query->param('trailto');
+my $trailfor = $Launchh::_query->param('trailfor');
+my $pledgegoal = $Launchh::_query->param('pledgegoal');
+my $eId = $Launchh::_query->param('eId');
+my $trailer_escaped = uri_escape($trailer);
+my $pmode = $Launchh::_query->param('pmode');
+
+#my $message = $Launchh::_query->param('message') ; 
+my $pledged = $pledgegoal - $trailfor;
+
+$Launchh::u = $Launchh::_query->param('trailto');
+
+&Launchh::select_accounts("WHERE account_username='$Launchh::u'");
+&Launchh::next_account();
+
+$trailfor = 0 if($trailfor < 0);
+my $toname = $Launchh::account->{'account_name_first'}. " ". $Launchh::account->{'account_name_last'}; 
+my $ttfull = $toname;
+print $Launchh::_query->header();
+print html_pay_social();
+&Launchh::clean_exit();
+
+sub html_pay_social
+{
+		
+	my $update_str = << "EOM";
+<div class="popup">
+		<div class="popup-head" id="confirmation">
+		<h2>Thanks for funding entrepreneurship.</h2>
+	</div><!-- /.popup-head -->
+
+	<div class="popup-body">
+		<p>Your billing information is secure.<br>
+          <div class="custom-checkbox">
+                <input type="checkbox" name="is_anonymous" id="is_anonymous"  value="Anonymous" onclick="javascript:is_anonymous(this);" />
+                                                    <label for="is_anonymous" style="width: 28em; display:inline-block;">
+                                                        <span class="custom-checkbox-fake"></span>
+                                                                    Check here to keep your donation Anonymous to the public
+                                                    </label>
+                                                </div>      
+        </p>        
+		<div class="form form-refer form-message form-funds">
+			<form onsubmit="return goThroughPayment();">
+				<div class="form-body">
+					<div class="form-row form-row-alt">
+						<div class="form-controls">
+								<input class="field" type="number" id="custom-donation-amount" placeholder="$trailfor" value="$trailfor" min="1"  step="1" required/>
+                                        <span class="currency">USD</span>
+						</div><!-- /.form-controls -->
+					</div><!-- /.form-row -->
+                        <div class="form-actions">
+                                 <input type="submit" value="Fund $Launchh::account->{'account_name_first'}'s $trailer" class="btn btn-medium" /> 
+                                 <input type="hidden" value="0" name="anonymous" id = "anonymous">
+                                 <img src="../images/ssl-stripe-seal.png">
+                        </div><!-- /.form-actions -->
+				</div><!-- /.form-body -->
+			</form>            
+		</div><!-- /.form form-refer -->
+	</div><!-- /.popup-body -->
+</div><!-- /.popup -->
+
+<script>
+
+          function goThroughPayment() {
+          
+                var anonymous = \$("#anonymous").val();
+                var trailfor = \$("#custom-donation-amount").val();
+                if (trailfor <= 0) {
+                    alert('Sorry, cannot process \$' + trailfor +' donation. Please donate more than a dollar.');
+                } else {
+		      location.href="../signup?ref=funders&trailer=$trailer_escaped&trailto=$trailto&ttfull=$ttfull&anonymous="+anonymous+"&trailfor="+trailfor+"&eId=$eId&pledged=$pledged&pledgegoal=$pledgegoal&pmode=$pmode";                
+                }
+                return false;
+          }
+          function is_anonymous(pointer)  {
+               if(pointer.checked){
+                    \$("#anonymous").val('1');
+                }
+                else{
+                    \$("#anonymous").val('0');                
+                }
+          }
+</script>
+
+EOM
+		
+return $update_str;
+}
+
+#my $message = $Launchh::_query->param('message') ; 
+
+$Launchh::u = $Launchh::_query->param('trailto');
+
+&Launchh::select_accounts("WHERE account_username='$Launchh::u'");
+&Launchh::next_account();
+
+my $toname = $Launchh::account->{'account_name_first'}. " ". $Launchh::account->{'account_name_last'}; 
+my $ttfull = $toname;
+
+sub trim
+{
+    my $str = shift;
+    
+    $str =~ s/^\s+//;
+    $str =~ s/\s+$//;
+    
+    return $str;
+}

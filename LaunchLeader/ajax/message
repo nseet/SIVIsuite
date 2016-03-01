@@ -1,0 +1,247 @@
+#!/usr/bin/perl
+
+##!D:/TOWORK/bin/xampp/perl/bin/perl.exe
+
+use lib '../cgi-bin';
+use lib '../util';
+use Launchh;
+use strict;
+use CGI::Session;
+
+my $session = new CGI::Session("driver:File", undef, {Directory=>"/tmp"});
+my $cgi = new CGI;
+my $cookie = $cgi->cookie( "CGISESSID", $session->id );
+$session->expire("+15m");
+
+my $funder_id = $Launchh::_query->param('funder_id');
+my $msgcount = $Launchh::_query->param('msgcount');
+
+my $username  = $session->param("username") if(defined $session->param("username"));
+if($username eq ''){ exit; }
+
+&Launchh::select_accounts("WHERE account_username='$username'");
+&Launchh::next_account();
+my $from_email = $Launchh::account->{'account_email'};
+
+
+print $Launchh::_query->header();
+print html_conversation_window();
+&Launchh::clean_exit();
+
+my $dir_str = "../";
+#$dir_str = "../" if($from eq 'admin');$from_email
+
+
+#my $message = $Launchh::_query->param('message') ; 
+
+sub html_conversation_window
+{
+
+    &Launchh::select_funder_detail_by_id("WHERE account_funder_id = '$funder_id'");
+    &Launchh::next_funder_detail_byid();
+    
+    my $funder_name = $Launchh::funder_detail->{'account_funder_name'};
+    my $funder_avatar = $Launchh::funder_detail->{'account_funder_avatar'};
+    my $funder_email = $Launchh::funder_detail->{'account_funder_email'};
+    $funder_avatar = "../social/images/launchleader-short.png" if($funder_avatar eq '');
+    
+    my $profile_photo = '';
+    &Launchh::select_details("WHERE detail_type=2 AND detail_status=1 AND detail_id = 25");
+    &Launchh::next_detail();
+
+    &Launchh::select_question($Launchh::detail->{'detail_desc'});
+
+    &Launchh::select_account_details("WHERE account_id=$Launchh::account->{'account_id'} AND detail_id=$Launchh::detail->{'detail_id'} AND account_detail_status=1 ORDER BY account_detail_id desc LIMIT 1");
+    &Launchh::next_account_detail();
+
+    my $detail_value = $Launchh::account_detail->{'account_detail_desc'};
+    $profile_photo= $detail_value;
+
+    if($profile_photo eq ''){
+        $profile_photo = "images/launchleader-human-avatar.png";
+    }
+    else{
+        $profile_photo = "../uploads/$Launchh::account->{'account_id'}/images/$profile_photo";
+    }
+    $profile_photo =~ s/([^^A-Za-z0-9\-_.!~*'()\/])/ sprintf "%%%0x", ord $1 /eg;
+    
+   my $update_str = << "EOM";
+<div class="popup popup-messages" id="confirmation-top">
+	<div class="popup-head">
+		<h2><img src="$funder_avatar" alt="" width="50" height="50" />$funder_name</h2>
+	</div><!-- /.popup-head -->
+    <div class="popup-body">
+        <ul class="messages">
+EOM
+
+    &Launchh::select_conversation($funder_email, $Launchh::account->{'account_id'});
+    while(&Launchh::next_conversation()){
+        my $conversation_type = $Launchh::conversation->{'conversation_type'};
+        
+        my $conv_avatar = '';
+        my $conv_sender_name = '';
+        my $conv_date = $Launchh::conversation->{'conversation_details_datetime'};
+        my $conv_message = $Launchh::conversation->{'conversation_details_text'};
+        
+        if($conversation_type == 1){
+            # From Entrepreneur
+            $conv_avatar = $profile_photo;
+            $conv_sender_name = $Launchh::account->{'account_name_first'}.' '.$Launchh::account->{'account_name_last'};
+        }
+        elsif($conversation_type == 2){
+            # To Entrepreneur  
+            $conv_avatar = $funder_avatar;
+            $conv_sender_name = $funder_name;
+        }
+        
+        $update_str .= << "EOM";
+			<li class="message">
+				<div class="message-head">
+					<img src="$conv_avatar" alt="" width="50" height="50" />
+
+					<h3>$conv_sender_name</h3>
+					<h6>$conv_date</h6>
+				</div><!-- /.message-head -->
+
+				<div class="message-body">
+					<p>$conv_message</p>
+				</div><!-- /.message-body -->
+			</li><!-- /.message -->
+EOM
+
+    }
+
+=begin
+
+    $update_str = << "EOM";
+			<li class="message">
+				<div class="message-head">
+					<img src="css/images/temp/john.jpg" alt="" width="50" height="50" />
+
+					<h3>John Doe</h3>
+					<h6>10/26/2014</h6>
+				</div><!-- /.message-head -->
+
+				<div class="message-body">
+					<p>Hi Bill, <br> Thanks for backing us! What's your twitter? <br><br> -John</p>
+				</div><!-- /.message-body -->
+			</li><!-- /.message -->
+	
+    <li class="message">
+				<div class="message-head">
+					<img src="css/images/temp/bill.jpg" alt="" width="50" height="50" />
+
+					<h3>Bill George</h3>
+					<h6>10/27/2014</h6>
+				</div><!-- /.message-head -->
+
+				<div class="message-body">
+					<p>My pleasure, I'm \@billybob <br><br> -John</p>
+				</div><!-- /.message-body -->
+			</li><!-- /.message -->
+=cut
+
+my $placeholder_text = "Write new message...";
+$placeholder_text = "Write your first message..." if($msgcount == 0);
+
+$update_str .= << "EOM";
+        </ul><!-- /.messages -->
+        <div class="form-message">
+			<form  onsubmit="return sendEmail();">
+				<div class="form-body">
+					<div class="form-row">
+						<div class="form-controls"><span id="alertspan"><br></span>
+							<textarea name="message" id="message" class="textarea" placeholder="$placeholder_text"></textarea>
+						</div><!-- /.form-controls -->
+					</div><!-- /.form-row -->
+				</div><!-- /.form-body -->
+
+				<div class="form-actions">
+					<button type="submit" class="btn btn-small">Send Message</button>
+				</div><!-- /.form-actions -->
+                 <input type="hidden" name="username" id="username" value="$username"/>
+                 <input type="hidden" name="tosend" id="tosend" value="1"/>
+                 <input type="hidden" name="from_email" id="from_email" value="$from_email"/>
+                 <input type="hidden" name="funder_email" id="funder_email" value="$funder_email"/>
+			</form>
+		</div><!-- /.form-message -->
+	</div><!-- /.popup-body -->
+</div><!-- /.popup -->
+
+
+
+<script>
+            function sendEmail() {
+                // 1. Create XHR instance - Start
+                
+                var xhr;
+                if (window.XMLHttpRequest) {
+                    xhr = new XMLHttpRequest();
+                }
+                
+                else if (window.ActiveXObject) {
+                    xhr = new ActiveXObject("Msxml2.XMLHTTP");
+                }
+                else {
+                    throw new Error("Ajax is not supported by this browser");
+                }
+                
+                // 1. Create XHR instance - End
+                
+                // 2. Define what to do when XHR feed you the response from the server - Start
+                
+                xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                        if (xhr.status == 200 && xhr.status < 300) {
+                            if(xhr.responseText == "success"){
+                                parent.\$('#colorbox').height("150px");
+                                parent.\$('#colorbox').css('top', '35%');
+                                parent.retrieveCall();
+                                \$('#confirmation-top').removeClass("popup popup-messages");
+                                \$('#confirmation-top').html("<div class='popup-confirm' align=center><br><br><br><h4><i>Message sent successfully</i></h4></div>");
+                                \$('#tosend').val(0);
+                            }
+                            else {
+                                //alert(xhr.responseText);
+                                \$('#confirmation').html("<h3>Message sending failed</h3>");
+                            }
+                        }
+                    }
+                }
+                // 2. Define what to do when XHR feed you the response from the server - Start
+
+                var message = document.getElementById("message").value;
+                var username = document.getElementById("username").value;
+                var tosend = document.getElementById("tosend").value;
+                var from_email = document.getElementById("from_email").value;
+                from_email = encodeURIComponent(from_email);
+                var funder_email = document.getElementById("funder_email").value;
+                funder_email = encodeURIComponent(funder_email);
+                message = message.trim();
+                
+                if(message == ''){
+                    \$('#alertspan').html("<font color='#ff0000'>Please type your message</font>");
+                }
+            
+                var post_str = "message=" + message +"&username=" + username + "&from_email=" + from_email + "&funder_email=" + funder_email;
+                //alert(post_str); return false;
+                
+                // 3. Specify your action, location and Send to the server - Start 
+                if(tosend == 1){
+                    xhr.open('POST', '$dir_str'+'ajax/launchmailer');
+                    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                    xhr.send(post_str);
+                }
+                // 3. Specify your action, location and Send to the server - End
+
+            return false;
+          }
+
+
+</script>
+
+EOM
+
+return $update_str;
+
+}

@@ -1,0 +1,12 @@
+Options FollowSymLinks +Includes -Indexes +ExecCGI
+AddType text/html .shtml
+AddHandler server-parsed .shtml
+XBitHack on
+<Files "dashboard">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "manage-campaign">
+SetHandler cgi-script
+ForceType text/html
+</Files>

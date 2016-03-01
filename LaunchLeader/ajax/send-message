@@ -1,0 +1,187 @@
+#!/usr/bin/perl
+
+##!D:/TOWORK/bin/xampp/perl/bin/perl.exe
+
+use lib '../cgi-bin';
+use lib '../util';
+use Launchh;
+use strict;
+use Data::Dumper;
+    
+#$Launchh::HFILE = "empty-ll2.html";
+
+my $username = $Launchh::_query->param('uname');
+my $tosend = $Launchh::_query->param('tosend') || 0; 
+my $message = $Launchh::_query->param('message'); 
+my $from = $Launchh::_query->param('from'); 
+my $from_email = $Launchh::_query->param('from_email'); 
+
+my $dir_str = "../";
+#$dir_str = "../" if($from eq 'admin');
+
+#my $message = $Launchh::_query->param('message') ; 
+
+
+$Launchh::u = $Launchh::_query->param('uname');
+
+&Launchh::select_accounts("WHERE account_username='$Launchh::u'");
+&Launchh::next_account();
+
+my $toname = $Launchh::account->{'account_name_first'}. " ". $Launchh::account->{'account_name_last'}; 
+
+print $Launchh::_query->header();
+print html_send_message();
+&Launchh::clean_exit();
+
+sub html_send_message
+{
+    
+    my $send_message_header = "Write a brief note and we'll email it for you.";
+    $send_message_header = "Send any important notice to the Entrepreneur." if($from eq 'admin');
+    
+	my $update_str = << "EOM";
+<div class="popup"  id="confirmation-top">
+	<div class="popup-head" id="confirmation">
+		<h2>Send your message!</h2>
+	</div><!-- /.popup-head -->
+
+	<div class="popup-body">
+		<p>$send_message_header</p>
+		<div class="form form-refer form-message">
+			<form onsubmit="return sendEmail();">
+EOM
+
+if($from eq 'admin' ){
+    $update_str .=<<EOM;
+EOM
+}
+
+
+      
+    $update_str .=<<EOM;
+				<div class="form-body">
+					<div class="form-row form-row-alt">
+						<label for="recepient" class="form-label">
+							To:
+							<span class="form-hint">recepient</span>
+						</label>
+
+						<div class="form-controls">
+							<input type="text" name="refer-email" id="refer-email" class="field" placeholder="$toname" disabled/>
+						</div><!-- /.form-controls -->
+EOM
+
+if($from ne 'admin' ){
+    $update_str .=<<EOM;
+                            <label for="recepient" class="form-label">
+                                Your
+                                <span class="form-hint">address:</span>
+                            </label>
+
+                            <div class="form-controls">
+                                <input type="text" name="from_email" id="from_email" class="field" value="$from_email" placeholder="example\@gmail.com" />
+                            </div><!-- /.form-controls -->
+EOM
+}
+
+$update_str .=<<EOM;
+					</div><!-- /.form-row -->
+
+					<div class="form-row">
+						<div class="form-controls">
+							<textarea cols="30" rows="10" name="message" id="message" class="textarea" placeholder="Send Message here..."></textarea>
+						</div><!-- /.form-controls -->
+					</div><!-- /.form-row -->
+				</div><!-- /.form-body -->
+
+				<div class="form-actions form-actions-right">
+                         <input type="hidden" name="username" id="username" value="$username"/>
+                         <input type="hidden" name="tosend" id="tosend" value="1"/>
+					<input type="submit" value="Send Message" class="btn btn-medium" />
+				</div><!-- /.form-actions -->
+			</form>
+		</div><!-- /.form form-refer -->
+	</div><!-- /.popup-body -->
+</div><!-- /.popup -->
+
+<script>
+            function sendEmail() {
+                // 1. Create XHR instance - Start
+                
+                var xhr;
+                if (window.XMLHttpRequest) {
+                    xhr = new XMLHttpRequest();
+                }
+                
+                else if (window.ActiveXObject) {
+                    xhr = new ActiveXObject("Msxml2.XMLHTTP");
+                }
+                else {
+                    throw new Error("Ajax is not supported by this browser");
+                }
+                
+                // 1. Create XHR instance - End
+                
+                // 2. Define what to do when XHR feed you the response from the server - Start
+                
+                xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                        if (xhr.status == 200 && xhr.status < 300) {
+                            if(xhr.responseText == "success"){
+                                parent.\$('#colorbox').height("150px");
+                                //parent.\$('#colorbox').css('top', '35%');
+                                \$('#confirmation-top').removeClass("popup");
+                                \$('#confirmation-top').html("<div class='popup-confirm' align=center style='{font-style:italic, font-size: 12px, color: #3A3}'><br><br><br>Email sent successfully</div>");
+                               // \$('#confirmation').html("<h2><i>Email sent successfully</i></h2>");
+                                \$('#tosend').val(0);
+                            }
+                            else {
+                                //alert(xhr.responseText);
+                                \$('#confirmation').html("<h2><font color='RED'>Email sending failed</font></h2>");
+                            }
+                        }
+                    }
+                }
+                // 2. Define what to do when XHR feed you the response from the server - Start
+
+                var message = document.getElementById("message").value;
+                var username = document.getElementById("username").value;
+                var tosend = document.getElementById("tosend").value;
+                var from_email = document.getElementById("from_email").value;
+                from_email = encodeURIComponent(from_email);
+       
+                var post_str = "message=" + message +"&username=" + username + "&from_email=" + from_email;
+               // alert(post_str);
+		
+                // 3. Specify your action, location and Send to the server - Start 
+                if(tosend == 1){
+                    xhr.open('POST', '$dir_str'+'ajax/launchmailer');
+                    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                    xhr.send(post_str);
+                }
+                // 3. Specify your action, location and Send to the server - End
+
+	    return false;
+          }
+
+
+</script>
+
+EOM
+		
+
+return $update_str;
+
+}
+
+
+
+sub trim
+{
+    my $str = shift;
+    
+    $str =~ s/^\s+//;
+    $str =~ s/\s+$//;
+    
+    return $str;
+}

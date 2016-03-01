@@ -1,0 +1,290 @@
+#!/usr/bin/perl
+
+#!D:/TOWORK/bin/xampp/perl/bin/perl.exe
+
+use lib 'cgi-bin';
+use lib 'util';
+use Launchh;
+use URI::Escape;
+
+my $pmode = $Launchh::_query->param('pmode') if($pmode eq '');
+
+if($pmode ne  '' && $pmode ne  'launchleader') {
+	$Launchh::HFILE = "template/empty-$pmode.html";
+}
+else{
+	$Launchh::HFILE = "empty-ll2.html";
+}
+
+my $ref = $Launchh::_query->param('ref');
+
+my $trailer_escaped = uri_escape($Launchh::_query->param('trailer'));
+my $trailto = $Launchh::_query->param('trailto');
+my $ttfull = $Launchh::_query->param('ttfull');
+my $trailfor = $Launchh::_query->param('trailfor');
+my $eId = $Launchh::_query->param('eId');
+my $pledged = $Launchh::_query->param('pledged');
+my $pledgegoal = $Launchh::_query->param('pledgegoal');
+my $anonymous = $Launchh::_query->param('anonymous');
+
+
+my $og_title = "";
+print $Launchh::_query->header();
+print_header(); # &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+print html_signup();
+print &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+
+
+&Launchh::clean_exit();
+
+
+sub html_signup
+{
+    
+    my $action_page = "./account";
+    $action_page = "social/fmttll" if( $ref eq 'funders');
+    
+    my $str .=<<EOM;
+		<div class="section section-signup">
+			<div class="shell">
+				<div class="section-body">
+					<div class="register">
+						<h3>Sign Up For A Free Account</h3>
+
+                            <!-- 
+                                 Login with Linkedin disabled for now
+                                <a href="#" class="btn btn-linkedin">Connect with LinkedIn</a>
+                            -->
+
+						<div class="form form-register">
+							<form action="$action_page" method="post" name="join" id="signup" onsubmit="return false;">
+							<input type="hidden" name="mode" value="join">
+							<input type="hidden" name="ref" value="$ref">
+								<div class="form-head">
+								<h3>Sign Up With Email</h3>
+								</div><!-- /.form-head -->
+
+                                        <div class="form-body">
+                                        <div class="form-controls">
+                                                        <input type="text" name="name" id="reg-name" class="field" placeholder="Name" /><br> 
+									</div><! -- /.form-row -->
+
+									<div class="form-controls">
+										<input type="text" name="username" id="reg-username" class="field" placeholder="Username" />
+									</div><!-- /.form-row -->
+                                    
+									<div class="form-controls">
+										<input type="text" name="uemail" id="reg-mail" class="field" placeholder="Email" />
+									</div><!-- /.form-row -->
+									
+									<div class="form-controls">
+										<input type="text" name="ruemail" id="reg-remail" class="field" placeholder="Re-enter Email" />
+									</div><!-- /.form-row -->
+									
+									<div class="form-controls">
+										<input type="password" name="p" id="reg-pass" class="field" placeholder="Password" />
+									</div><!-- /.form-row -->
+
+									<div class="form-controls">
+										<input type="password" name="rp" id="reg-rpass" class="field" placeholder="Re-enter Password" />
+									</div><!-- /.form-row -->
+                                    <div id="red-box"></div>
+
+									<div class="form-row">
+										<span class="form-hint">Your privacy is assured. By signing up, you agree to our privacy policy and terms of service.</span>
+									</div><!-- /.form-row -->
+                                        <br>
+								</div><!-- /.form-body -->
+
+								<div class="form-actions" align=center>
+                                             <br>
+EOM
+
+if( $ref eq 'funders'){
+            $str .=<<EOM;
+                                                 <input type="hidden" name="trailer" value="$trailer_escaped">
+                                                 <input type="hidden" name="trailto" value="$trailto">
+                                                 <input type="hidden" name="ttfull" value="$ttfull">
+                                                 <input type="hidden" name="trailfor" value="$trailfor">
+                                                 <input type="hidden" name="eId" value="$eId">
+                                                 <input type="hidden" name="pledged" value="$pledged">
+                                                 <input type="hidden" name="pledgegoal" value="$pledgegoal">
+                                                 <input type="hidden" name="anonymous" value="$anonymous">
+EOM
+    }
+            $str .=<<EOM;    
+                                             <input type="hidden" name="u" value="">
+									<input type="submit" value="Create Account" class="form-btn" onClick="return isValid()"/>
+								</div><!-- /.form-actions -->
+					
+EOM
+
+my $login_href = "login" ;
+if( $ref eq 'funders'){
+        $str .=<<EOM;
+                                            <div align=center>
+                                                <br>
+                                                <br>
+                                                <h4> ____________or____________ </h4>
+                                                <br>
+                                                <br>
+                                            </div>
+                                             <input type="submit" value="" class="btn-facebook" onClick="return fbLogin();"/> 
+                                            <span class="form-hint" align=center><br>We'll never post anything on Facebook  without your permission.<br></span>
+                                            <hr>
+EOM
+        $login_href = "login?ref=funders&trailer=$trailer_escaped&trailto=$trailto&ttfull=$ttfull&trailfor=$trailfor&eId=$eId&pledged=$pledged&pledgegoal=$pledgegoal&anonymous=$anonymous";
+    }
+
+    if($pmode ne ''){
+        if($login_href eq 'login'){ $login_href = "login?pmode=$pmode"; }
+        else{ $login_href .= "&pmode=$pmode"; }
+    }
+
+
+$str .=<<EOM;
+                                        	<input type="hidden" name="pmode" value="$pmode">
+                                    </form>
+                                <div align=center><br>Already Have an account? <a href="$login_href">Log in</a></div>
+                                </div><!-- /.form form-register -->
+					</div><!-- /.register -->
+
+					</div><!-- /.login -->
+				</div><!-- /.section-body -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-signup -->
+        
+
+        <script>
+            function fbLogin(){
+                    location.href="social/fmttll?trailer=$trailer_escaped&trailto=$trailto&ttfull=$ttfull&trailfor=$trailfor&eId=$eId&pledged=$pledged&pledgegoal=$pledgegoal&anonymous=$anonymous&pmode=$pmode";
+                    return false;
+            }
+    
+    function isValid() {
+            var email=document.join.uemail.value;
+            var cemail=document.join.ruemail.value;
+            
+            var password=document.join.p.value;
+            var cpassword=document.join.rp.value;            
+            
+            var username=document.join.username.value;            
+            
+            username=myTrim(document.join.username.value);                        
+            document.join.u.value = username;
+            
+            if (username == '') {
+               \$("#red-box").html("<div class='error'>Please type your Username</div>")
+                return false;
+            } 
+             if (username.length < 6) {
+                \$("#red-box").html("<div class='error'>Username must be at least 6 characters long.</div>")
+                return false;
+            }              
+            if( /[^a-zA-Z0-9]/.test( username ) ) {
+                 \$("#red-box").html("<div class='error'>Username must be alphanumeric.</div>")
+                   return false;
+            }            
+
+             if(!validateEmail (email)){
+               \$("#red-box").html("<div class='error'>Please enter a valid email address and try again.</div>")
+                return false;
+             }
+             
+             if (email != cemail) {
+                \$("#red-box").html("<div class='error'>Your confirm Email address doesn\\'t match.</div>")
+                return false;
+            }
+
+             if (password.length < 8 ) {
+                \$("#red-box").html("<div class='error'>Password must be at least 8 characters long.</div>")
+                return false;
+            }           
+            if (password != cpassword) {
+                \$("#red-box").html("<div class='error'>Confirm Password doesn\\'t match.</div>")
+                return false;
+            }
+            document.join.submit();
+    }
+                
+     function myTrim(x) {
+        return x.replace(/^\\s+|\\s+\$/gm,'');
+    }       
+     
+    function validateEmail(email) 
+    {
+        var re = /\\S+\@\\S+\\.\\S+/;
+        return re.test(email);
+    } 
+        </script>        
+EOM
+
+return $str;
+
+}
+
+
+sub print_header
+{
+   my $header = &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+#$user_header_str = " of ".$Launchh::account->{'account_name_first'} if($Launchh::account->{'account_name_first'} ne '');
+
+   $header =~ s/XXXTITLEXXX/USER PROFILE/is;
+   $header =~ s/TITLE_FOR_SOCIAL_SITE/$og_title/gs;
+   $header =~ s/DASHBOARDSTR//is;
+   $header =~ s/SIGNUPSTR//is;   
+
+    if( $pmode ne ''  ){
+        $header =~ s/faq">/faq\?pmode=$pmode">/is;   
+        $header =~ s/login">/login\?pmode=$pmode">/is;   
+        $header =~ s/discover">/discover\?pmode=$pmode">/is;   
+        $header =~ s/privacy"/privacy\?pmode=$pmode"/is;   
+        $header =~ s/terms"/terms\?pmode=$pmode"/is;   
+    }
+
+   
+   my $headerold .= << "EOM";
+
+		<aside class="sidebar">
+			<ul class="widgets">
+				<li class="widget widget-nav">
+					<ul>
+						<li>
+							<a href="/dash?$Launchh::HSTR">
+								<i class="icon-desktop"></i> Dashboard
+							</a>
+						</li>
+		
+						<li class="current">
+							<a href="/account?$Launchh::HSTR">
+								<i class="icon-app"></i> Profile
+							</a>
+						</li>
+		
+						<li>
+							<a href="/inbox?$Launchh::HSTR">
+								<i class="icon-mail"></i> Inbox 
+							</a>
+		
+							<!--ul>
+								<li>
+									<a href="/inbox?$Launchh::HSTR">
+										<i class="icon-mail-arrow-down"></i> Inbox
+									</a>
+								</li>
+		
+								<li>
+									<a href="/inbox?$Launchh::HSTR">
+										<i class="icon-mail-arrow-up"></i> Sent
+									</a>
+								</li>
+							</ul-->
+						</li>
+					</ul>
+				</li><!-- /.widget widget-nav -->
+			</ul><!-- /.widgets -->
+		</aside><!-- /.sidebar -->
+EOM
+
+   print $header;
+}

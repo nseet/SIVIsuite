@@ -1,0 +1,38 @@
+#!/usr/bin/perl
+
+use lib '../cgi-bin';
+use lib '../util';
+use Launchh;
+use strict;
+    
+#$Launchh::HFILE = "empty-ll2.html";
+
+my $account_id = $Launchh::_query->param('account_id') || 0;
+my $funder_id = $Launchh::_query->param('funder_id') || 0;
+my $action = $Launchh::_query->param('action') || '';
+
+print $Launchh::_query->header();
+
+if($action eq 'convcount'){
+    &Launchh::select_funder_detail_by_id("WHERE account_funder_id = '$funder_id'");
+    &Launchh::next_funder_detail_byid();
+    my  $funder_email =  $Launchh::funder_detail->{'account_funder_email'};
+    my $conversation_count = 0;
+    $conversation_count = &Launchh::total_conversation($funder_email, $account_id);    
+    print "$conversation_count";
+}
+&Launchh::clean_exit();
+
+sub trim
+{
+    my $str = shift;
+    $str =~ s/^\s+//;
+    $str =~ s/\s+$//;
+    return $str;
+}
+
+
+=begin 
+1. To show appropriate notice while message sent
+2. To send message through online
+=cut

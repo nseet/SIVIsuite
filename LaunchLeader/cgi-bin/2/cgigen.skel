@@ -1,0 +1,151 @@
+#!/usr/bin/perl
+
+use $u_site_alias;
+use strict;
+
+my $stage = $$u_site_alias::_query->param('stage') || 0;
+my $mode = $$u_site_alias::_query->param('mode') || "view";
+
+&$u_site_alias::do_check_login();
+&$u_site_alias::select_account($$u_site_alias::uid);
+#auto_select
+
+if($stage==0) #View mode
+{
+   print $$u_site_alias::_query->header();
+   print &$u_site_alias::html_header($$u_site_alias::HFILE);
+   print html_stage0();
+   print &$u_site_alias::html_footer($$u_site_alias::HFILE);
+}
+elsif($stage == 1 || !verify_stage1()) 
+{
+   print $$u_site_alias::_query->header();
+   print &$u_site_alias::html_header($$u_site_alias::HFILE);
+   print html_stage1();
+   print &$u_site_alias::html_footer($$u_site_alias::HFILE);
+}
+elsif($stage==2)
+{	
+   print $$u_site_alias::_query->header();
+   print &$u_site_alias::html_header($$u_site_alias::HFILE);
+   print html_stage2();
+   print &$u_site_alias::html_footer($$u_site_alias::HFILE);
+
+}
+elsif($stage==3)
+{
+#auto_insert
+
+   print "Location: $$u_site_alias::$utableS_CGI?$$u_site_alias::HSTR&stage=2\n\n";
+}
+
+&$u_site_alias::clean_exit();
+
+sub html_stage0
+{
+my $str = << "EOM";
+<TABLE WIDTH="$$u_site_alias::TABLE_WIDTH" BORDER="0">   
+
+#auto_detail
+
+   <TR>
+        <TD>
+        <FONT FACE="$$u_site_alias::FONT" SIZE="$$u_site_alias::SIZE">
+ 
+        <FORM ACTION="$$u_site_alias::$utableS_CGI">
+        $$u_site_alias::HIDDEN
+        <INPUT TYPE="hidden" NAME="stage" VALUE="1">
+        </FORM>
+
+        </FONT>
+        </TD>
+   </TR>
+
+</TABLE>
+EOM
+   
+return $str;
+   
+}
+
+sub html_stage1
+{
+my $str = << "EOM";
+<TABLE WIDTH="$$u_site_alias::TABLE_WIDTH" BORDER="0">
+   <TR>
+        <TD>
+        <FONT FACE="$$u_site_alias::FONT" SIZE="$$u_site_alias::SIZE" COLOR="red">
+        $$u_site_alias::ERROR 
+        </FONT>
+        </TD>
+   </TR>
+   <TR>
+	<TD>
+	<FONT FACE="$$u_site_alias::FONT" SIZE="$$u_site_alias::SIZE">
+	<FORM ACTION="$$u_site_alias::$utable_CGI" METHOD="POST">
+	<INPUT TYPE="HIDDEN" NAME="stage" VALUE="2">
+	<INPUT TYPE="HIDDEN" NAME="mode" VALUE="$mode">
+        $$u_site_alias::HIDDEN
+	<TABLE BORDER="0" CELLPADDING="3">
+#auto_input
+		<TR><TD>
+		<INPUT TYPE="submit" NAME="Submit" VALUE="Submit">&nbsp;&nbsp;&nbsp;
+		<INPUT TYPE="reset" NAME="Reset" VALUE="Reset">
+		</TD></TR>
+	</TABLE>
+	</FORM>
+	</FONT>
+	</TD>
+   </TR>
+
+</TABLE>
+EOM
+
+return $str;
+
+}
+
+sub html_stage2
+{
+my $str = << "EOM";
+<TABLE WIDTH="$$u_site_alias::TABLE_WIDTH" BORDER="0">
+   <TR>
+	<TD>
+	<FONT FACE="$$u_site_alias::FONT" SIZE="$$u_site_alias::SIZE">
+	<FORM ACTION="$$u_site_alias::$utable_CGI" METHOD="POST">
+	<INPUT TYPE="HIDDEN" NAME="stage" VALUE="3">
+	<INPUT TYPE="HIDDEN" NAME="mode" VALUE="$mode">
+        $$u_site_alias::HIDDEN
+	<TABLE BORDER="0" CELLPADDING="3">
+
+#auto_confirm
+		<TR><TD>
+		<FONT FACE="$$u_site_alias::FONT" SIZE="$$u_site_alias::SIZE">
+		If you are satisfied with your responses, click Done, otherwise, click Back.
+		</FONT>
+		</TD></TR>
+		<TR><TD>
+		<INPUT TYPE="submit" NAME="Done" VALUE="Done">
+		</TD></TR>
+	</TABLE>
+	</FORM>
+	</FONT>
+	</TD>
+   </TR>
+
+</TABLE>
+EOM
+
+return $str;
+
+}
+
+sub verify_stage1
+{
+#auto_verify
+
+return 1;
+}
+
+ 
+  

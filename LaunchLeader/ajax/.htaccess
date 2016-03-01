@@ -1,0 +1,48 @@
+Options +Includes -Indexes +FollowSymLinks  +ExecCGI
+Options -Multiviews 
+
+AddType text/html .shtml
+AddHandler server-parsed .shtml
+XBitHack on
+
+
+<Files "ajaxreply">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "message">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "send-message">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "launchmailer">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "refer-friend">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "report-violation">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "paysocial-popup">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "disburse-input-popup">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "subscribe">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "embed-profile">
+SetHandler cgi-script
+ForceType text/html
+</Files>

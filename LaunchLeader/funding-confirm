@@ -1,0 +1,318 @@
+#!/usr/bin/perl
+
+##!D:/TOWORK/bin/xampp/perl/bin/perl.exe
+
+use lib 'cgi-bin';
+use lib 'util';
+use Launchh;
+use URI::Escape;
+use CGI::Session;
+
+
+my $session = new CGI::Session("driver:File", undef, {Directory=>"/tmp"});
+my $cgi = new CGI;
+my $cookie = $cgi->cookie( "CGISESSID", $session->id );
+$session->expire("+20m");
+
+my $uname  = $session->param("username") if(defined $session->param("username"));
+&Launchh::select_accounts("WHERE account_username='$uname'");
+&Launchh::next_account();
+my $from_email = $Launchh::account->{'account_email'};
+
+$Launchh::u = $Launchh::_query->param('u');
+my $sid = $Launchh::_query->param('sid');
+my $pmode = $Launchh::_query->param('pmode');
+my $status= $Launchh::_query->param('status');
+
+if($pmode ne  ''  && $pmode ne  'launchleader') {
+	$Launchh::HFILE = "template/empty-$pmode.html";
+}
+else{
+	$Launchh::HFILE = "empty-ll2.html";
+}
+
+&Launchh::select_accounts("WHERE account_username='$Launchh::u'");
+&Launchh::next_account();
+
+$Launchh::uid = $Launchh::account->{'account_id'};
+
+
+=begin
+my $ref = $Launchh::_query->param('ref');
+my $trailer_escaped = uri_escape($Launchh::_query->param('trailer'));
+my $trailto = $Launchh::_query->param('trailto');
+my $ttfull = $Launchh::_query->param('ttfull');
+my $trailfor = $Launchh::_query->param('trailfor');
+my $eId = $Launchh::_query->param('eId');
+=cut
+
+my $og_title = "";
+print $Launchh::_query->header();
+print_header(); # &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+print html_funding_confirm();
+print_footer();
+
+#print &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+
+&Launchh::clean_exit();
+
+sub html_funding_confirm
+{
+    my $first_name = $Launchh::account->{'account_name_first'};
+    my $last_name = $Launchh::account->{'account_name_last'}; 
+    my $fullname = "$first_name $last_name";
+    #my $fb_app_id = "309437425817038";
+    my $fb_app_id = $Launchh::FB_APP_ID;
+    
+    my $page_url = 'http';
+    if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off") {
+        $page_url .= "s";
+    }
+    $page_url .= "://";
+    
+    $page_url .= $ENV{SERVER_NAME};
+    $page_url .= "/profile?u=$Launchh::u";
+    
+    my @detailArr;
+    &Launchh::select_details("WHERE detail_type=2 AND detail_status=1 AND detail_id = 47 ORDER BY CAST(detail_note AS DECIMAL(5,1))");
+    while(&Launchh::next_detail())
+    {
+       &Launchh::select_question($Launchh::detail->{'detail_desc'});
+       
+       my $question_limit = $Launchh::question->{'question_limit'};
+       my $detail_note = $Launchh::detail->{'detail_note'}  ;
+
+       #select user's previous answer, if any
+       &Launchh::select_account_details("WHERE account_id=$Launchh::uid AND detail_id=$Launchh::detail->{'detail_id'} AND account_detail_status=1 ORDER BY account_detail_id desc LIMIT 1");
+       &Launchh::next_account_detail();
+   
+       my $detail_value = $Launchh::account_detail->{'account_detail_desc'};
+       my $detail_id = $Launchh::detail->{'detail_id'};
+       
+       $detailArr[$detail_id] = $detail_value;        
+    }
+    
+    my $twitter= $detailArr[47];
+    my $facebook= $detailArr[46];
+
+    my $twitter_name = '';
+    if( $twitter =~/.*twitter.com\/(.*?$)/){
+        $twitter_name = $1;
+    }
+    #$twitter_name = $twitter if($twitter_name eq '');
+     if($twitter_name eq '' && $facebook =~/.*twitter.com\/(.*?$)/){
+          $twitter_name = $1;
+     }
+
+
+    my $support_header = "Thank you for supporting entrepreneurship!";
+    $support_header = "We have failed to authorize your card!" if($status eq 'declined');
+
+    my $support_header2 = "Increase your impact by sharing the profile page link with your network via the web, social media and email.";
+    $support_header2 = "Plesae Try again with a different card" if($status eq 'declined');
+    
+    my $str .=<<EOM;
+<div class="section section-confirm">
+			<div class="shell">
+				<div class="section-head">
+					<h2>$support_header</h2>
+				</div><!-- /.section-head -->
+
+				<div class="section-body">
+					<p>$support_header2</p>
+
+					<span class="share">Share</span>
+				</div><!-- /.section-body -->
+
+				<div class="section-actions">
+					<div class="btn-wrap">
+						<a href="#" onClick="javascript:popupwindow('https://www.facebook.com/sharer/sharer.php?app_id=$fb_app_id&sdk=joey&u=$page_url&display=popup&ref=plugin','Click here to support entrepreneurship by $fullname','650','350')" class="btn btn-fb-share"></a> 
+					</div><!-- /.btn-wrap -->
+
+					<div class="btn-wrap">
+                                    <a href="#" onClick="javascript:popupwindow('https://twitter.com/intent/tweet?text=Join me supporting %23entrepreneurship by $first_name $last_name&url=$page_url&via=sivicorp','title','650','350')" class="btn btn-tw-tweet"></a>
+					</div><!-- /.btn-wrap -->
+
+					<div class="btn-wrap">
+                                    <a href="../social/get_short_url?tsu=$Launchh::account->{'account_username'}"  class="btn btn-link-share modal-trigger"></a>
+					</div><!-- /.btn-wrap -->				
+                    
+                    <div class="btn-wrap">
+                                    <a href="../ajax/embed-profile?tsu=$Launchh::account->{'account_username'}"  class="btn btn-embed-share modal-trigger"></a>
+					</div><!-- /.btn-wrap -->
+
+                </div><!-- /.section-actions -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-confirm -->
+
+		<div class="section section-user-interactions">
+			<div class="shell">
+				<div class="section-body">
+					<ul class="interactions">
+						<li class="interaction">
+							<h3>SUBSCRIBE</h3>
+
+							<p>Sign up to receive email updates from this entrepreneur.</p>
+							
+							<a href="#" onClick="javacript:recieveEmail()" class="btn btn-medium">Recieve Emails</a>
+						</li><!-- /.interaction -->
+
+						<li class="interaction">
+							<h3>go back</h3>
+						
+							<p>Return to the profile page to share, message and fund more.</p>
+						
+							<a href="profile?u=$Launchh::u&pmode=$pmode" class="btn btn-medium">Return to Profile</a>
+						</li><!-- /.interaction -->
+						
+						<li class="interaction">
+							<h3>MESSAGE</h3>
+							<p>Email this entrepreneur to provide feedback and suggestions about the idea.</p>
+							<a href="../ajax/send-message?uname=$Launchh::u&from_email=$from_email&pmode=$pmode" class="btn btn-medium  modal-trigger">Give Feedback</a>
+
+						</li><!-- /.interaction -->
+					</ul><!-- /.interactions -->
+				</div><!-- /.section-body -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-user-interactions -->    
+        
+         <script>
+         
+            function popupwindow(url, title, w, h) {
+                  url = url.replace("#","%23") 
+                  var left = (screen.width/2)-(w/2);
+                  var top = (screen.height/2)-(h/2);
+                  return window.open(url, title, 'toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=no, resizable=no, copyhistory=no, width='+w+', height='+h+', top='+top+', left='+left);
+            } 
+           
+  	     function recieveEmail() {
+             \$.ajax(
+                {
+                    type: 'POST',
+                    cache: false,
+                    dataType: 'html',                    
+                    url: 'social/get-subscribe.php',
+                    data: {uname :  '$Launchh::u',   sid: '$sid'},
+                    success: function(data)
+                    {
+                         if (data && data.error && data.errorno)
+                         {
+                               // there is an application-level error. Hande it.
+                               // ...
+                               return;
+                         }
+                         //alert(data);
+                         if(data == 'failed')
+                                alert("Failed to subscribe this time! Please contact SIVI admin.");
+                         else if(data == 'subscribed')
+                                alert("Successfully subscribed to the Entrepreneur.");
+                         else if(data == 'already-subscribed')
+                                alert("You are already subscribed to the Entrepreneur.");
+                    }
+                });                 
+                
+          }
+
+</script>        
+        
+EOM
+
+return $str;
+
+}
+
+
+sub print_header
+{
+   my $header = &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+#$user_header_str = " of ".$Launchh::account->{'account_name_first'} if($Launchh::account->{'account_name_first'} ne '');
+
+   $header =~ s/XXXTITLEXXX/USER PROFILE/is;
+   $header =~ s/TITLE_FOR_SOCIAL_SITE/$og_title/gs;
+   $header =~ s/DASHBOARDSTR//is;
+
+   $header =~ s/XXXTITLEXXX/USER PROFILE/is;
+   
+   if($Launchh::uid ne ''){
+        $header =~ s/DASHBOARDSTR/<li><a href="dashboard">My Dashboard<\/a><\/li>/is;   
+        $header =~ s/<li class="separator">\s*<a href=".*?login">Login<\/a>/<li class="separator"><a href="logout?pmode=$pmode">Logout<\/a>/is  if($pmode ne '');        
+        $header =~ s/<li class="separator">\s*<a href=".*?login">Login<\/a>/<li class="separator"><a href="logout">Logout<\/a>/is ;        
+        $header =~ s/SIGNUPSTR//is;
+    }
+    else{
+        $header =~ s/DASHBOARDSTR//is;
+    }
+   
+    if( $pmode ne '' ){
+        $header =~ s/faq">/faq\?pmode=$pmode">/is;   
+        $header =~ s/login">/login\?pmode=$pmode">/is;   
+        $header =~ s/discover">/discover\?pmode=$pmode">/is;   
+        $header =~ s/privacy"/privacy\?pmode=$pmode"/is;   
+        $header =~ s/terms"/terms\?pmode=$pmode"/is;   
+        $header =~ s/SIGNUPSTR/<li class="signup"><a href=\"..\/signup?pmode=$pmode\">Sign Up<\/a><\/li>/is;                
+	}
+    $header =~ s/SIGNUPSTR/<li class="signup"><a href=\"..\/signup\">Sign Up<\/a><\/li>/is ;  
+    
+   $header =~ s/TITLE_FOR_SOCIAL_SITE/$og_title/gs;
+
+   
+   my $headerold .= << "EOM";
+
+		<aside class="sidebar">
+			<ul class="widgets">
+				<li class="widget widget-nav">
+					<ul>
+						<li>
+							<a href="/dash?$Launchh::HSTR">
+								<i class="icon-desktop"></i> Dashboard
+							</a>
+						</li>
+		
+						<li class="current">
+							<a href="/account?$Launchh::HSTR">
+								<i class="icon-app"></i> Profile
+							</a>
+						</li>
+		
+						<li>
+							<a href="/inbox?$Launchh::HSTR">
+								<i class="icon-mail"></i> Inbox 
+							</a>
+		
+							<!--ul>
+								<li>
+									<a href="/inbox?$Launchh::HSTR">
+										<i class="icon-mail-arrow-down"></i> Inbox
+									</a>
+								</li>
+		
+								<li>
+									<a href="/inbox?$Launchh::HSTR">
+										<i class="icon-mail-arrow-up"></i> Sent
+									</a>
+								</li>
+							</ul-->
+						</li>
+					</ul>
+				</li><!-- /.widget widget-nav -->
+			</ul><!-- /.widgets -->
+		</aside><!-- /.sidebar -->
+EOM
+
+   print $header;
+}
+
+
+sub print_footer
+{
+    
+   my $footer = &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+
+    if( $pmode ne '' && !defined $session->param("pmode") ){
+        $footer =~ s/privacy"/privacy\?pmode=$pmode"/is;   
+        $footer =~ s/terms"/terms\?pmode=$pmode"/is;   
+    }
+    
+    print $footer;
+}
+

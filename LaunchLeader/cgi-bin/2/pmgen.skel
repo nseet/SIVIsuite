@@ -1,0 +1,303 @@
+package $u_site_alias;
+
+# Required packages
+use Custom;
+use CGI;
+use URI::Escape;
+use lib '/home/packages'; 
+use dream;
+use headers;
+use strict;
+
+#auto_pms
+
+BEGIN {
+    use vars qw(@ISA @EXPORT 
+		$_query $DEBUG $uid $cid $username $passwordenc $conf $dbh $sth $HIDDEN $HSTR $ERROR
+		$SITE_URL $CGI_URL
+		$INDEX_CGI $PARAM_CGI $PARAMS_CGI #auto_cgi_globals
+		$HFILE $TABLE_WIDTH $FONT $SIZE $COLOR_1 $COLOR_2 $COLOR $COLS
+	
+		$params #auto_globals
+		);
+
+    # Export symbols
+    @ISA= qw(Exporter);
+	
+    $_query = new CGI;
+    $conf = $_query->param('conf');
+    $dbh = Connect("$site_alias:$server_alias");
+    $DEBUG = 0;
+
+    $SITE_URL = "$site_url";
+    $CGI_URL = "/cgi-bin/2";
+    $INDEX_CGI = "$CGI_URL/index.cgi";
+    $PARAM_CGI = "$CGI_URL/param.cgi";
+    $PARAMS_CGI = "$CGI_URL/params.cgi";
+#auto_cgi_paths
+
+    $HFILE = '$site_hfile';
+    $FONT = "Arial";
+    $SIZE = "3"; 
+    $TABLE_WIDTH = "95%";
+    $COLOR_1 = "#EEEEEE";    
+    $COLOR_2 = "#CCCCCC";    
+    $COLOR = $COLOR_1;
+    $COLS = 3;
+
+    #requires the param table (see param.sql) and Param.pm 
+    &load_params();
+
+sub load_params 
+{               
+   &select_params("WHERE param_id > 0 AND param_id < 100");
+
+   while(&next_param())
+   {
+        $params->{"$param->{'param_name'}"} = $param->{'param_value'};
+        #print STDERR "STATUS: Setting Parameter $param->{'param_name'} = $param->{'param_value'}\n";
+   }
+    
+   return;
+}
+
+
+sub setCookie
+{
+   my $ip = shift;
+   my $user = shift;
+   my $dbh = shift;   
+
+   if(!$ip) { return; }
+
+   if(!$user)
+   {
+    my $statement = "select max(userid) from users";
+    my $sth = Execute($statement, $dbh);
+    $user = Fetchone($sth) + 1;
+
+    my $cookie = $_query->cookie(-name=>"user",
+                                 -value=>"$user",
+                                 -expires=>'+10y',
+                                 -path=>'/',
+                                 -domain=>".$SITE_URL",
+                                 -secure=>0);
+    print "Set-Cookie: $cookie\n";
+    
+    $statement = "insert into users values($user,'$ip',NOW())";
+    
+    Execute($statement, $dbh);
+   }
+
+   return $user;
+    
+}                                 
+
+sub do_check_login
+{
+   $username = $_query->param('u');
+   $passwordenc = $_query->param('p');
+   my $plain_pass = 0;
+   my $check_only = shift || 1;  #xxx change to 0 before go live
+
+   if($passwordenc !~ /^\.v/)
+   { 
+       $plain_pass = 1; 
+   }
+
+   my $u = $dbh->quote($username); 
+   my $p = $dbh->quote($passwordenc);
+   my $p2 = $dbh->quote($passwordenc);
+
+   if($plain_pass == 1)
+   {
+      $passwordenc = get_enc($passwordenc,$dbh);
+      $p = $dbh->quote($passwordenc);
+   } 
+
+   &select_accounts("WHERE account_username=$u and account_password=$p");
+   &next_account();
+
+   #Password was set in account table as plain - update it!
+   if($plain_pass == 1 && !$account->{'account_id'})
+   {
+      &select_accounts("WHERE account_username = $u and account_password=$p2");
+      &next_account();
+
+      if($account->{'account_id'})
+      {
+	 &update_account("account_password=$p");	
+      }
+   } 
+
+   $uid = $account->{'account_id'};
+
+   if(!$uid && !$check_only)
+   {
+       print "Location: $SITE_URL/$INDEX_CGI\n\n";
+       Disconnect($dbh);
+       exit;
+   }
+
+   $HIDDEN = "<INPUT TYPE=\"hidden\" NAME=\"u\" VALUE=\"$username\">
+	   <INPUT TYPE=\"hidden\" NAME=\"p\" VALUE=\"$passwordenc\">";
+
+   $HSTR = "u=$username&p=$passwordenc";
+
+   return; 
+}
+
+
+sub toggle_color
+{
+   if($COLOR eq $COLOR_1)
+   { $COLOR = $COLOR_2; }
+   else
+   { $COLOR = $COLOR_1; }
+
+   return;
+}
+
+sub get_option_name
+{
+   my $id = shift;
+   my $table = shift;
+
+   my $sth = Execute("SELECT name FROM $table WHERE id = $id", $dbh); 
+   my ($name) = Fetchone($sth);
+
+   print STDERR "SELECT name FROM $table WHERE id = $id\n\n--$name--\n\n";
+
+   return $name;
+}
+
+sub count_table 
+{
+   my $table = shift;
+   my $WHERE = shift;
+
+   my $statement = "SELECT COUNT(*) FROM $table
+        $WHERE   
+        ";
+   Execute($statement,$dbh);
+
+   my $count = Fetchone(Execute($statement,$dbh));
+   return $count;
+}
+
+sub sum_table
+{
+   my $table = shift;
+   my $col = shift;
+   my $WHERE = shift;
+
+   my $statement = "SELECT SUM($col) FROM $table
+	         $WHERE
+		         ";
+			    
+   Execute($statement,$dbh);
+
+   my $sum = Fetchone(Execute($statement,$dbh));	          
+	
+   return $sum;
+	  
+}
+
+
+
+sub max_table  
+{
+   my $col = shift;  
+   my $table = shift;
+   my $WHERE = shift;
+   
+   my $statement = "SELECT MAX($col) FROM $table
+        $WHERE
+        ";
+   Execute($statement,$dbh);
+   
+   my $max = Fetchone(Execute($statement,$dbh));  
+   return $max;  
+}
+
+
+sub min_table
+{
+   my $col = shift;
+   my $table = shift;
+   my $WHERE = shift;
+
+   my $statement = "SELECT MIN($col) FROM $table
+        $WHERE
+        ";
+   Execute($statement,$dbh);
+
+   my $min = Fetchone(Execute($statement,$dbh));
+   return $min;
+}
+
+#returns comma separated list
+sub group_concat 
+{
+   my $col = shift;
+   my $table = shift;
+   my $WHERE = shift;
+   
+   my $statement = "SELECT GROUP_CONCAT($col) FROM $table
+        $WHERE
+        ";
+   Execute($statement,$dbh);
+   
+   my $group_concat = Fetchone(Execute($statement,$dbh));  
+   return $group_concat;  
+
+}
+
+sub html_options
+{
+my $column_id = shift;
+my $column_name = shift;
+my $table = shift;
+my $order_by = shift || $column_name;
+my $default = shift;
+my $str;
+
+my $sth = Execute("SELECT $column_id, $column_name FROM $table ORDER BY $order_by", $dbh);
+while(my ($id, $name) = Fetch($sth))
+{
+my $selected;
+   $selected = "selected" if($id == $default);
+$str .= "<OPTION VALUE=\"$id\" $selected>$name</OPTION>";
+}
+
+return $str;
+
+}
+
+sub clean_exit
+{               
+Disconnect($dbh);
+exit;
+}
+
+sub sendmail 
+{   
+    my $to = shift;  
+    my $subject = shift;
+    my $body = shift;
+    my $from = shift;
+    my $cc = shift;
+    
+    open(MAIL, "|/usr/lib/sendmail -f$from $to");
+    print(MAIL "To: $to\n");
+    print(MAIL "Cc: $cc\n") if($cc);
+    print(MAIL "From: $from\n");
+    print(MAIL "Subject: $subject\n");                                           
+    print(MAIL "$body\n\n"); 
+    close(MAIL);
+
+return;
+}
+
+}  #End Module     
+1;

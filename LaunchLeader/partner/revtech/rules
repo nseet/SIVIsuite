@@ -1,0 +1,256 @@
+#!/usr/bin/perl
+
+use lib '../../cgi-bin';
+use lib '../../util';
+use Launchh;
+use CGI::Session;
+
+my $session = new CGI::Session("driver:File", undef, {Directory=>"/tmp"});
+my $cgi = new CGI;
+my $cookie = $cgi->cookie( "CGISESSID", $session->id );
+$session->expire("+15m");
+
+$Launchh::uid = $session->param("uid") if($Launchh::uid  eq '');
+
+my $pmode  = "revtech"; #$session->param("pmode") if(defined $session->param("pmode"));
+$pmode = $Launchh::_query->param('pmode') if($pmode eq '');
+
+if($pmode ne  ''  && $pmode ne  'launchleader') {
+	$Launchh::HFILE = "../../template/empty-$pmode.html";
+}
+else{
+	$Launchh::HFILE = "empty-ll2.html";
+}
+
+my $og_title = "";
+print $Launchh::_query->header();
+print_header(); # &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+print html_faq();
+print_footer();
+
+
+&Launchh::clean_exit();
+
+
+sub html_faq
+{
+    my $str .=<<EOM;
+	<div class="section section-faq">
+			<div class="shell">
+				<div class="section-faq-inner">
+					<div class="section-head">
+						<h2>Compete for People's Choice Prize</h2>
+					
+						<p>REVTECH just announced the new People's Choice prize competition for all REVTECH applicants!</p>
+                                                <p>The People's Choice Prize is a crowdfunding competition giving REVTECH applicants an additional opportunity to gain investment, mentorship and education from REVTECH.</p>
+					</div><!-- /.section-head -->
+					
+					<div class="section-body">
+					
+						<section class="faq-content">
+							<!--div class="section-head">
+								<h2>How It Works</h2>
+							</div><!-- /.section-head -->
+
+							<div class="section-body">
+								<ul class="faq-questions">
+									<li>
+										<div class="faq-question-body">
+                                                                                        <p>
+                                                                                                <em>How It Works</em>
+                                                                                        </p>
+
+											<p>
+1) <a href="https://vip.launchleader.com/signup?pmode=revtech" target="_blank">Sign up</a> and create a profile to crowdfund startup tools that will help your company build its Minimum Viable Product (MVP) or prototype. Tools may include a logo, explainer video, website, prototype design, developer fees - you decide what you need. </p>
+
+											<p>
+2) Share your unique profile page link with your friends and family to get donations for your startup. This is real money that you will receive at the end of the competition regardless of the outcome.
+											<p>
+3) The Top 5 teams that crowdfund the most money will receive the following prizes valued at \$10,000:
+<br> - 	\$3,000 investment from REVTECH for 1% of founder's equity 
+<br> -	2-minute Elevator Pitch to investors at REVTECH Demo Day
+<br> -	Remote participation in REVTECH workshops
+For more information about crowdfunding and our platform partner, LaunchLeader, <a href="https://www.youtube.com/watch?v=nziYthJxLpE" target="_blank">watch this video</a>. 
+<br>For questions about the challenge email <a "mailto:support\@launchleader.com">support\@launchleader.com</a>
+<br>
+<br><strong>Get started now by signing up <a href="https://vip.launchleader.com/signup?pmode=revtech">HERE</a></strong>
+										</div><!-- /.faq-question-body -->
+									</li>
+                                    
+                                             <li>                                        
+                                                <div class="faq-question-body">
+											<p>
+												<em>Rules</em>
+											</p>
+
+											<p>
+<br> -	The People's Choice competition runs May 8 at 12:01am EST – June 2 at 11:59pm EST.
+<br> -	Participation and performance in the People's Choice competition does not affect your application status for the REVTECH accelerator; this is a separate prize awarded to the Top 5 crowdfunding teams regardless of their status in the REVTECH accelerator.
+<br> -	LaunchLeader and Stripe take an 8% processing fee on all successful donations.
+
+										</div><!-- /.faq-question-body -->
+									</li>
+                                    
+                                             <li>                                        
+                                                <div class="faq-question-body">
+											<p>
+												<em>Tip: Customize Your Fundraising Campaign Page</em>
+											</p>
+
+											<p><i>The more compelling your page is, the more likely people will stick around to learn about your startup.</i>
+<br>
+<br> - Select a point person from your team to create your profile.
+<br> -  Tell your startup's story. How are you solving problems for people, businesses and the planet?
+<br> -  Add photos and a video, if at all possible. 
+<br> -  Choose 2-3 tools at a time to raise money for so your donors have some choice.
+<br> -  Upload completed tools such as your logo or webpage to show your progress
+<br>
+										</div><!-- /.faq-question-body -->
+									</li>
+                                    
+                                             <li>                                        
+                                                <div class="faq-question-body">
+											<p>
+												<em>Tip: Promoting Your Campaign</em>
+											</p>
+
+											<p><i>Spreading the word about your campaign is the only way to raise lots of money for your startup. You need to be talking about the People's Choice competition all the time.</i>
+<br>
+<br> - Email is by far the best way to ask your supporters to donate to your startup. Send out individual emails (use the donor email template we provide you) so that the recipient does not feel anonymous. It works.
+<br> - Email is king, but social media is good too. Use the private message tool on Facebook and direct message tool on Twitter to make a direct ask to individuals. In addition, post links and updates about your campaign on your Facebook wall as well as on Twitter.
+<br> - In addition to email and Facebook or Twitter, use every other channel possible. If you have an Instagram account, post on there; if you have a newsletter, create special newsletters about the competition launch and your progress. 
+<br> - Supporters love to hear that their contributions are making a difference. Make sure to send out emails when you reach milestones. If they feel emotionally involved, they're more likely to be invested and give multiple times.
+<br> - If you have a website, landing page or blog, use the HTML embed widget provided on your profile page to create a clickable banner to your campaign.
+<br> - Send thank you emails to your supporters every time they contribute and make sure to do it fast. When your supporters feel really appreciated, they are more likely to give again.
+<br> - Use contests to spark interest and get donations. Offer incentives such as early access and shout outs to engage donors.
+<br>
+
+										</div><!-- /.faq-question-body -->
+									</li>
+                                    
+                                             <li>                                        
+                                                <div class="faq-question-body">
+											<p>
+												<em>Tip: Keeping Engagement High</em>
+											</p>
+
+											<p><i>Momentum is so important. Keep pushing right up to the deadline. We want you to raise the most money possible for your startup.</i>
+<br>
+<br> - Get a couple of big contributions early to really boost your donation volume.
+<br> - Check your fundraising page analytics every day to understand what's working and what isn't.
+<br> - Post regular updates about your campaign to keep people informed about how it's going.
+<br> - Use deadlines to create some urgency and rally support.
+<br> - Use the message features and email to ask for feedback about your startup concept. You don't only want to ask for money.
+<br> - Continue to post updates even after the challenge is over – this is your early adopter network!
+
+
+										</div><!-- /.faq-question-body -->
+									</li>
+                                    
+                                    
+								</ul><!-- /.faq-questions -->
+
+							</div><!-- /.section-body -->
+						</section><!-- /.faq-content -->
+					</div><!-- /.section-body -->
+				</div><!-- /.section-faq-inner -->
+			</div><!-- /.shell -->
+		</div><!-- /.section .section-faq -->
+EOM
+
+return $str;
+
+}
+
+
+sub print_header
+{
+   my $header = &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+#$user_header_str = " of ".$Launchh::account->{'account_name_first'} if($Launchh::account->{'account_name_first'} ne '');
+   my $rand = rand(10000);
+
+   $header =~ s/XXXTITLEXXX/USER PROFILE/is;
+   if($Launchh::uid ne ''){
+        $header =~ s/DASHBOARDSTR/<li><a href="dashboard">My Dashboard<\/a><\/li>/is;   
+        $header =~ s/<li class="separator">\s*<a href=".*?login">Login<\/a>/<li class="separator"><a href="logout?$rand">Logout<\/a>/is ;        
+        $header =~ s/SIGNUPSTR//is;
+    }
+    else{
+        $header =~ s/DASHBOARDSTR//is;
+        if($pmode eq ''){
+            $header =~ s/SIGNUPSTR/<li class="signup"><a href=\"..\/signup\">Sign Up<\/a><\/li>/is;
+        }
+        else{
+            $header =~ s/SIGNUPSTR/<li class="signup"><a href=\"\/signup?pmode=$pmode\">Sign Up<\/a><\/li>/is;
+        }
+    }
+   
+   
+    if( $pmode ne '' && !defined $session->param("pmode") ){
+        $header =~ s/faq">/faq\?pmode=$pmode">/is;   
+        $header =~ s/login">/login\?pmode=$pmode">/is;   
+        $header =~ s/discover">/discover\?pmode=$pmode">/is;   
+    }
+    
+   $header =~ s/TITLE_FOR_SOCIAL_SITE/$og_title/gs;
+   
+   my $headerold .= << "EOM";
+
+		<aside class="sidebar">
+			<ul class="widgets">
+				<li class="widget widget-nav">
+					<ul>
+						<li>
+							<a href="/dash?$Launchh::HSTR">
+								<i class="icon-desktop"></i> Dashboard
+							</a>
+						</li>
+		
+						<li class="current">
+							<a href="/account?$Launchh::HSTR">
+								<i class="icon-app"></i> Profile
+							</a>
+						</li>
+		
+						<li>
+							<a href="/inbox?$Launchh::HSTR">
+								<i class="icon-mail"></i> Inbox 
+							</a>
+		
+							<!--ul>
+								<li>
+									<a href="/inbox?$Launchh::HSTR">
+										<i class="icon-mail-arrow-down"></i> Inbox
+									</a>
+								</li>
+		
+								<li>
+									<a href="/inbox?$Launchh::HSTR">
+										<i class="icon-mail-arrow-up"></i> Sent
+									</a>
+								</li>
+							</ul-->
+						</li>
+					</ul>
+				</li><!-- /.widget widget-nav -->
+			</ul><!-- /.widgets -->
+		</aside><!-- /.sidebar -->
+EOM
+
+   print $header;
+}
+
+
+sub print_footer
+{
+    
+   my $footer = &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+
+    if( $pmode ne '' && !defined $session->param("pmode") ){
+        $footer =~ s/privacy"/\/privacy\?pmode=$pmode"/is;   
+        $footer =~ s/terms"/\/terms\?pmode=$pmode"/is;   
+    }
+    
+    print $footer;
+}
+

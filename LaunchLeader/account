@@ -1,0 +1,2889 @@
+#!/usr/bin/perl
+
+#!D:/TOWORK/bin/xampp/perl/bin/perl.exe
+
+use strict;
+use warnings;
+
+use lib 'cgi-bin';
+use lib 'util';
+use Launchh;
+use strict;
+use CGI::Session;
+use POSIX qw(floor);
+use POSIX qw(ceil);
+use POSIX 'strftime';
+use Digest::MD5 qw(md5_hex);
+use Date::Calc qw( Add_Delta_DHMS Today_and_Now);
+use Encode qw(decode encode);
+
+my $session = new CGI::Session("driver:File", undef, {Directory=>"/tmp"});
+print STDERR "sess uid: ".$session->param("uid") if (defined $session->param("uid"));
+
+my $cgi = new CGI;
+my $cookie = $cgi->cookie( "CGISESSID", $session->id );
+$session->expire("+20m");
+
+print STDERR "uname: ".$session->param("username") if(defined $session->param("username"));
+
+my $stage = $Launchh::_query->param('stage') || 1;
+my $mode = $Launchh::_query->param('mode') || "edit";
+my $submitc = $Launchh::_query->param('submitc') || "continue";
+my $username = $Launchh::_query->param('username');
+my $u = $Launchh::_query->param('u');
+my $p = $Launchh::_query->param('p');
+my $uemail = $Launchh::_query->param('uemail');
+my $account_liun = $Launchh::_query->param('account_liun') || '';
+my $account_summary = $Launchh::_query->param('account_summary');
+my $ref_from = $Launchh::_query->param('ref');
+
+if($mode eq 'login'){
+    $session->param("stage","");
+    $session->param("mode","");
+    $session->param("uid","");
+    $session->param("username","");
+    $session->clear;
+}
+
+my $uname  = $session->param("username") if(defined $session->param("username"));
+my $uid  = $session->param("uid") if(defined $session->param("uid"));
+
+my $pmode  = $session->param("pmode") if(defined $session->param("pmode"));
+$pmode = $Launchh::_query->param('pmode') if(not defined $pmode or $pmode eq '');
+
+if(defined $pmode &&  $pmode ne  '' && $pmode ne  'launchleader' ) {
+	$Launchh::HFILE = "template/empty-$pmode.html";
+}
+else{
+	$Launchh::HFILE = "empty-ll2.html";
+}
+
+#print STDERR "HFILE: [$Launchh::HFILE]\n ";
+#$stage = $session->param("stage") if($stage == '1');
+
+$Launchh::uid = $session->param("uid") if($session->param("uid") && !$Launchh::uid );
+#my $connection_token = $Launchh::_query->param('connection_token');
+
+## Initial Status will be 80001
+my $incomplete_status = 79999;
+my $onapproval_status = 80000;
+my $account_status = 80001;
+my $project_status = 80002;
+my $cancelled_status = 80004;
+my $campaign_wpi_status = 80005;
+my $funded_status = 80006;
+
+my $account_id = 0;
+my $custom_campaign_limit = 5;
+my $company_id = ''; # $Launchh::_query->param('company_id');
+my $account_type = ''; # $Launchh::_query->param('company_id');
+
+my $only_check_flag = 0;
+if($mode =~ /^join/){
+    $only_check_flag = 1;
+}
+
+$session->param("stage","$stage")  if(defined $stage && $stage ne '');
+$session->param("mode","$mode")     if(defined $mode && $mode ne '');
+$session->param("pmode","$pmode")  if(defined $pmode && $pmode ne '');
+$uname = '' if(not defined ($uname));
+
+print STDERR "submitc: [$submitc] stage: [$stage] uname: [$uname] uid: [$uid] u: [$u] \n";
+
+if( (($uname eq '') or !$Launchh::uid) and ($u ne '' and $p ne '')) {
+	&Launchh::do_check_login($only_check_flag);
+    
+	print STDERR ">>>>>>>>>>got id1: $Launchh::uid\n";
+	print STDERR ">>>>>>>>>>mode: $mode\n";
+	print STDERR ">>>>>>>>>>pmode: $pmode\n";
+	my $uname  = $Launchh::u;
+	my $uid  = $Launchh::uid;
+	$pmode = $Launchh::account->{'account_partnercrumb'}  if( $pmode eq '' && $Launchh::account->{'account_partnercrumb'} ne '');
+    #$session->param("pmode","$pmode")
+	print STDERR ">>>>>>>>>>pmode: $pmode\n";
+    
+    $session->param("username","$uname");
+	$session->param("uid","$uid");
+	$session->param("pmode","$pmode");
+	$session->expire("+15m");
+    
+    if($mode !~ /^fromjoin/ and $mode !~ /^join/){
+        ##We are going to redirect to dashboard!!
+        print $session->header(-location=>'dashboard?mode=update');
+        print $cgi->header(-Cache_control => 'no-cache', -Pragma => 'no-cache');      
+        &Launchh::clean_exit();
+    }
+    if($mode =~ /^fromjoin/){
+        $mode = 'edit';
+    }
+}
+else{
+	$Launchh::uid = $session->param("uid") if($Launchh::uid  eq '');
+	$Launchh::u = $session->param("username") if($Launchh::u  eq '');
+	$mode = $session->param("mode") if(defined $mode  && $mode eq '');
+	$stage = $session->param("stage") if(defined $stage && $stage  eq '');
+	$session->param("username","$Launchh::u");
+	$session->param("uid","$Launchh::uid");    
+	print STDERR ">>>>>>>>>>got id2: $Launchh::uid\n";
+	#$session->param("stage","$stage");
+	if(!$Launchh::uid)
+    {
+       #print "Location: /index.html\n\n";
+       if($pmode ne '' && $pmode ne 'launchleader'){
+		print $session->header(-location=>"/partner/$pmode");
+       }
+       else{
+		print $session->header(-location=>'index.html');
+       }
+        print $cgi->header(-expires => 'now', -Cache_control => 'no-cache', -Pragma => 'no-cache');      
+        &Launchh::clean_exit();
+    }
+}
+#print $session->header();
+#$session->flush();
+
+## Write Cookie for the first time;
+#print $cgi->header(-cookie=>$cookie);
+
+#print STDERR " [$u] [$Launchh::u] [$Launchh::p] [$Launchh::uid] [$ref_from]\n ";
+
+#&Launchh::select_account($Launchh::uid)if($stage==1);
+if($mode =~ /^join/ && $Launchh::u && $Launchh::p && !$Launchh::uid)  #mode=join, for vmentor
+{
+   print STDERR "here: u=$Launchh::u, p=$Launchh::p, username=$Launchh::username, uid=$Launchh::uid \n";
+   my $username_exists = &Launchh::count_table("account","WHERE account_username='$username' or account_email='$Launchh::u'");
+   print STDERR ">>>>>>>>>>username_exists: $username_exists\n";
+   
+   if(!$username_exists)# && $Launchh::u =~ /\w+\@\w+\.\w+/is)  #new username, create it!
+   {
+#| account_id | account_username | account_password | account_name_first | account_name_last | account_location  | account_email   | account_desc       | account_note                 | account_agree | account_created     | account_accessed    | account_type | account_status |
+      #$uemail = $Launchh::dbh->quote($uemail) if($uemail !~ /^'/);
+      
+      $username = lc($username);
+      $uemail = lc($uemail);
+      
+      $pmode = 'launchleader' if($pmode eq '');
+      
+      &Launchh::read_account();
+      $Launchh::account->{'account_id'} = "NULL";
+      $Launchh::account->{'account_username'} = $username;
+      $Launchh::account->{'account_password'} = $Launchh::p;
+      $Launchh::account->{'account_created'} = "NOW()";
+      $Launchh::account->{'account_email'} = $uemail;
+      $Launchh::account->{'account_type'} = 1;
+      $Launchh::account->{'account_type'} = 4 if($mode eq "joinm");
+      $Launchh::account->{'account_status'} = $account_status;
+      $Launchh::account->{'account_agree'} = 1;
+      $Launchh::account->{'account_partnercrumb'} = $pmode;
+#     $Launchh::account->{'account_note'} = "connection_token=$connection_token\n" if($connection_token);
+      $Launchh::account->{'account_id'} = &Launchh::insert_account();
+      $Launchh::uid = $Launchh::account->{'account_id'};
+      
+      print STDERR ">>>>>>>>>>Inserted Redirecting \n";
+      print "Location: /account?u=$Launchh::u&p=$Launchh::p&mode=fromjoin&pmode=$pmode\n\n";
+      &Launchh::clean_exit();
+   }
+}    
+=begin
+if(defined $Launchh::account->{'account_type'}  == 3){
+    $company_id = $Launchh::account->{'account_status'};
+    &Launchh::select_company($company_id);
+}
+=cut
+
+&Launchh::read_account();
+&Launchh::select_account($Launchh::uid) if($stage > 3);# if($Launchh::account->{'account_id'});
+my $project_id = $Launchh::uid;
+
+
+if($stage==3) #after verified stage 1
+{
+	$Launchh::account->{'account_id'} = $Launchh::uid;
+
+	if($mode eq "delete")
+	{
+	   #&Launchh::delete_account($Launchh::account->{'account_id'});
+	}
+	else
+	{
+       print STDERR ">>>>>>>>>$Launchh::account->{'account_id'}<<<<<<<<<<\n";
+	   if( !$Launchh::account->{'account_id'})
+	   {
+		#&Launchh::insert_account();
+	   }
+	   else
+	   {
+		#replace these variables only if they are not default
+		my $account_username =  "account_username";
+		my $account_password =  "account_password";
+		my $account_desc = "account_desc";		
+		my $account_name_first = "account_name_first";
+		my $account_name_last = "account_name_last";
+		my $account_location = "account_location";
+		my $account_email = "account_email";
+		my $account_note = "account_note";
+        
+		$account_name_first = $Launchh::dbh->quote($Launchh::account->{'account_name_first'}) if($Launchh::account->{'account_name_first'} ne "First Name");
+		$account_name_last = $Launchh::dbh->quote($Launchh::account->{'account_name_last'})  if($Launchh::account->{'account_name_last'} ne "Last Name");
+        $account_desc =  $Launchh::dbh->quote($Launchh::account->{'account_desc'}) if($Launchh::account->{'account_desc'} ne "");
+		$account_location = $Launchh::dbh->quote($Launchh::account->{'account_phone'}) if($Launchh::account->{'account_phone'} ne "Location");
+
+        &Launchh::update_account("account_username=$account_username,account_password=$account_password,account_desc=$account_desc,account_name_first=$account_name_first,account_name_last=$account_name_last,account_phone=$account_location,account_email=$account_email,account_note=$account_note");
+		print STDERR "account_username=$account_username,account_password=$account_password,account_desc=$account_desc,account_name_first=$account_name_first,account_name_last=$account_name_last,account_phone=$account_location,account_email=$account_email,account_note=$account_note\n";
+	   }
+	}
+
+   $Launchh::account->{'account_username'} =~ s/\\//gis;
+   $Launchh::account->{'account_password'} =~ s/\\//gis;	
+
+   if($submitc eq 'save'){
+       $stage=1; #continue on to account_detail pop
+   }
+   else{ 
+        $stage=4; #continue on to account_detail pop
+        $stage=5 if($ref_from eq '1101000'); #continue on to account_detail pop 3rd page
+   }
+} #end stage==3
+
+elsif($stage==2) #deprecated
+{	
+   &Launchh::read_account();
+   print_header();
+   print html_stage2();
+   #print &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+   print_footer();
+}
+
+if($stage == 7 ) # Save Stripe Data
+{
+   if($submitc eq 'back'){
+       $stage=6; #continue on to stripe account page save
+   }
+   else{
+        my $stripe_data = $Launchh::_query->param("stripe_data"); 
+        print STDERR "SD: stripe_data = $stripe_data \n";   
+        
+        if(length($stripe_data) > 10){
+            if(  ($account_status == $Launchh::account->{'account_status'})    or
+                 ($incomplete_status == $Launchh::account->{'account_status'}) or
+                 ($campaign_wpi_status == $Launchh::account->{'account_status'})
+              ){
+                #&Launchh::update_account("account_status=$onapproval_status");
+                &Launchh::update_account("account_status=$project_status");
+                send_email_with_idea(1);
+            }
+            #&Launchh::update_account("account_status=$account_status");
+            &Launchh::select_stripe_connect("WHERE account_id= '$Launchh::uid'");
+            &Launchh::next_stripe_connect();   
+           
+           my $stripe_connect_id = $Launchh::stripe_connect_detail->{'stripe_connect_id'};
+           
+           if($stripe_connect_id ne ''){
+                # Updating Stripe Data;
+                #$Launchh::stripe_connect_detail->{'stripe_connect_id'} = '';
+                $Launchh::stripe_connect_detail->{'account_id'} = $Launchh::uid;
+                $Launchh::stripe_connect_detail->{'stripe_token_data'} = $stripe_data;
+                &Launchh::update_stripe_connect();
+           }
+           else{
+                # Inserting Stripe Data
+                $Launchh::stripe_connect_detail->{'stripe_connect_id'} = '';
+                $Launchh::stripe_connect_detail->{'account_id'} = $Launchh::uid;
+                $Launchh::stripe_connect_detail->{'stripe_token_data'} = $stripe_data;
+                &Launchh::insert_stripe_connect();
+           }
+       }
+       if($submitc eq 'save'){
+           $stage=7; #continue on to stripe account page save
+       }
+       else{ 
+           # Continue to Confirm page
+           $stage=8;
+       }
+   }
+}
+
+elsif($stage == 6 ) # Do all the idea related stuff here.
+{
+   if($submitc eq 'back'){
+       $stage=4; #continue on to stripe account page save
+   }
+   
+   else{
+        my $element_fund_use =  $Launchh::_query->param("element_fund_use"); 
+        print STDERR "xxx campaign :: [".$Launchh::_query->param("campaign1")."|".$Launchh::_query->param("campaignval1")."]" ;
+        
+        my $element_name = '';
+        my $element_amount = '';
+        my $number_of_campaigns = 0;
+        my $element_toprocess = '';
+
+        
+        for(my $inx = 1; $inx <= $custom_campaign_limit; $inx++){
+            $element_name = $Launchh::_query->param("campaign".$inx);
+            $element_amount = $Launchh::_query->param("campaignval".$inx);
+            next if($element_name eq '' or $element_amount eq '');
+            
+            $number_of_campaigns++;
+        
+            my $ename = $Launchh::dbh->quote($element_name);
+            
+            &Launchh::select_elements("WHERE element_status=1 and element_note = 'custom' AND element_name = $ename AND project_id = '$project_id'");
+            &Launchh::next_element();
+            my $found = $Launchh::element->{'element_id'};        
+            next if($found);
+            
+            $element_amount =~ s/,//;
+            $element_amount =~ s/\$//;
+            $element_amount = floor($element_amount);;
+
+            $Launchh::element->{'element_id'} = 'NULL';
+            $Launchh::element->{'project_id'} = $project_id;
+            $Launchh::element->{'element_name'} = $element_name;
+            $Launchh::element->{'element_desc'} = 'Custom Campaign';
+            $Launchh::element->{'element_note'} = 'custom';
+            $Launchh::element->{'element_amount'} = $element_amount;
+            $Launchh::element->{'element_type'} = 2;
+            $Launchh::element->{'element_status'} = 1;
+            
+            #$Launchh::package_detail->{'package_detail_datetime'} = "NOW()";
+            &Launchh::insert_element();
+            #$element_fund_use .=','.$element_name;
+            $element_fund_use .=','.$element_name.":".$element_amount;
+        }
+
+        #$element_fund_use = trim($element_fund_use);
+
+        print STDERR "xxx element_fund_use = [$element_fund_use]  xxx\n";
+        
+        my $to_output = "xxx element_fund_use = [$element_fund_use]  xxx\n";        
+        #write_output($to_output);
+
+        my @profile_elements = split /,/, $element_fund_use;
+        my $switch_off = 1;
+        while($element_toprocess=shift(@profile_elements)){
+            
+            my @elementx = split /\:/, $element_toprocess;
+            #$element_name =~ s/^\s+//;
+            #$element_name =~ s/\s+$//;
+            $element_name = trim(shift(@elementx));
+            $element_amount = trim(shift(@elementx));
+            
+            #my $to_output = "xxx element_name = [$element_name]  xxx\n";        
+            #write_output($to_output);           
+                     
+            if($element_name eq '') {
+                    next;
+            }
+            print STDERR "xxx element_name = [$element_name]   xxx\n";
+            print STDERR "xxx element_amount = [$element_amount]   xxx\n";
+
+            $number_of_campaigns++;
+            
+            if($switch_off == 1){
+                &Launchh::update_all_element_detail("element_detail.element_id = '0'", $Launchh::uid);
+                $switch_off = 0;
+            }
+
+            ## Finding Element ID
+            &Launchh::select_elements("WHERE element_name = '$element_name' and element_amount = '$element_amount' and (project_id = '0' or project_id = '$project_id')");
+            &Launchh::next_element();
+            my $eid = $Launchh::element->{'element_id'};
+            
+            &Launchh::select_element_details("WHERE account_id= '$Launchh::uid' AND element_id='0'"); 
+            &Launchh::next_element_detail();
+            
+            if($Launchh::element_detail->{'element_detail_id'}) #previous entry exists, update!
+            {
+                print STDERR "xxx Updating element_detail_id [$Launchh::element_detail->{'element_detail_id'}]   xxx\n";
+                #$Launchh::package_detail->{'package_detail_id'} = $Launchh::package_detail->{'package_detail_id'};
+                &Launchh::update_element_detail("element_id='$Launchh::element->{'element_id'}'");
+            }
+            else #insert new account_detail
+            {
+                $Launchh::element_detail->{'element_detail_id'} = "NULL";
+                $Launchh::element_detail->{'element_id'} = $Launchh::element->{'element_id'};
+                $Launchh::element_detail->{'account_id'} = $Launchh::uid;
+                $Launchh::element_detail->{'element_detail_status'} = 1;
+                #$Launchh::package_detail->{'package_detail_datetime'} = "NOW()";
+                &Launchh::insert_element_detail();
+                my $project_name = $Launchh::_query->param("detail_36");
+                send_campaign_confirmation($project_name, $element_name);
+            }
+        }
+        if($number_of_campaigns == 0){
+            &Launchh::update_all_element_detail("element_detail.element_id = '0'", $Launchh::uid);
+            &Launchh::update_account("account_status=$incomplete_status");
+        }
+        else{
+            &Launchh::select_stripe_connect("WHERE account_id= '$Launchh::uid'");
+            &Launchh::next_stripe_connect();   
+            my $stripe_connect_id = $Launchh::stripe_connect_detail->{'stripe_connect_id'};
+            if($stripe_connect_id ne ''){
+                &Launchh::update_account("account_status=$project_status");
+            }
+            else{
+                &Launchh::update_account("account_status='$campaign_wpi_status'");
+            }
+            
+        }		
+       print STDERR "xxx number_of_campaigns = $number_of_campaigns  xxx\n";
+
+        if( 
+            ( $account_status == $Launchh::account->{'account_status'}  or 
+              $incomplete_status == $Launchh::account->{'account_status'} 
+            ) && $number_of_campaigns ){
+            ## Updating $account_status as campaign without stripe information.
+            &Launchh::update_account("account_status='$campaign_wpi_status'");
+            send_email_with_idea(2);
+        }        
+        
+=begin
+        my $target_package =  $Launchh::_query->param("target_package"); 
+        $target_package =~ s/^\s*(\w+)\s+.*$/$1/is;
+
+        ## Finding Package ID
+        &Launchh::select_packages("WHERE package_name = '$target_package'");
+        &Launchh::next_package();
+        
+        &Launchh::select_package_details("WHERE account_id=$Launchh::uid "); 
+        &Launchh::next_package_detail();
+        
+        
+        print STDERR "xxx pkgid = $Launchh::package->{'package_id'}   xxx\n";
+        
+        if($Launchh::package_detail->{'package_detail_id'}) #previous entry exists, update!
+        {
+            #$Launchh::package_detail->{'package_detail_id'} = $Launchh::package_detail->{'package_detail_id'};
+            &Launchh::update_package_detail("package_id='$Launchh::package->{'package_id'}'");
+        }
+        else #insert new account_detail
+        {
+                $Launchh::package_detail->{'package_detail_id'} = "NULL";
+                $Launchh::package_detail->{'package_id'} = $Launchh::package->{'package_id'};
+                $Launchh::package_detail->{'account_id'} = $Launchh::uid;
+                #$Launchh::package_detail->{'package_detail_datetime'} = "NOW()";
+                &Launchh::insert_package_detail();
+        }
+=cut
+
+       &Launchh::select_details("WHERE detail_type=2 AND detail_status=1 AND detail_name LIKE 'Idea-%' ORDER BY detail_note");
+       while(&Launchh::next_detail())
+       {
+            #my $account_detail_desc = $Launchh::_query->param("detail_$Launchh::detail->{'detail_id'}");
+            #my @account_detail_desc_arr = $Launchh::_query->param("detail_$Launchh::detail->{'detail_id'}");
+            
+            for my $account_detail_desc (  $Launchh::_query->param("detail_$Launchh::detail->{'detail_id'}") ){
+                print STDERR "xxx account_detail_desc = $account_detail_desc xxx\n";
+                &Launchh::select_account_details("WHERE account_id=$Launchh::uid AND detail_id=$Launchh::detail->{'detail_id'} AND account_detail_status=1 ORDER BY account_detail_id DESC LIMIT 1"); #most recent first
+                &Launchh::next_account_detail();
+                print STDERR "xxx  account_id=$Launchh::uid AND detail_id=$Launchh::detail->{'detail_id'}\n";
+                if($Launchh::account_detail->{'account_detail_id'}) #previous entry exists, update!
+                {       
+                        $account_detail_desc = $Launchh::dbh->quote($account_detail_desc);
+                        $Launchh::account_detail->{'account_detail_desc'} = $account_detail_desc;
+                        &Launchh::update_account_detail("account_detail_desc=$account_detail_desc");
+                }
+                else #insert new account_detail
+                {
+                        $Launchh::account_detail->{'account_detail_id'} = "NULL";
+                        $Launchh::account_detail->{'detail_id'} = $Launchh::detail->{'detail_id'};
+                        $Launchh::account_detail->{'account_id'} = $Launchh::uid;
+                        $Launchh::account_detail->{'account_detail_name'} = $Launchh::detail->{'detail_name'};
+                        $Launchh::account_detail->{'account_detail_desc'} = $account_detail_desc;
+                        $Launchh::account_detail->{'account_detail_note'} = '';
+                        $Launchh::account_detail->{'account_detail_type'} = 1;
+                        $Launchh::account_detail->{'account_detail_status'} = 1;
+
+                        &Launchh::insert_account_detail();
+                }
+         }
+       }
+
+       if($submitc eq 'save'){
+           $stage=6; #continue on to idea page save
+       }
+       else{ 
+           # Continue to Stripe Account Setup
+           $stage=7;
+       }
+   }
+}
+
+
+elsif($stage==5) #first check to see if user is inserting/updating
+{
+   if($submitc eq 'back'){
+       $stage=1; #continue on to stripe account page save
+   }
+   else{
+       print STDERR "ref_from [$ref_from] \n";
+       if($ref_from eq '1101000'){
+           $Launchh::_query->param("detail_51", $ref_from);
+           print STDERR "detail_51[". $Launchh::_query->param("detail_51") ."]\n";
+       }
+       
+       &Launchh::select_details("WHERE detail_type=2 AND detail_status=1 AND detail_name NOT LIKE 'Idea-%' ORDER BY detail_note");
+       while(&Launchh::next_detail())
+       {
+            #my $account_detail_desc = $Launchh::_query->param("detail_$Launchh::detail->{'detail_id'}");
+            #my @account_detail_desc_arr = $Launchh::_query->param("detail_$Launchh::detail->{'detail_id'}");
+            
+            for my $account_detail_desc (  $Launchh::_query->param("detail_$Launchh::detail->{'detail_id'}") ){
+                print STDERR "xxx account_detail_desc = $account_detail_desc xxx\n";
+                &Launchh::select_account_details("WHERE account_id=$Launchh::uid AND detail_id=$Launchh::detail->{'detail_id'} AND account_detail_status=1 ORDER BY account_detail_id DESC LIMIT 1"); #most recent first
+                &Launchh::next_account_detail();
+                print STDERR "xxx  account_id=$Launchh::uid AND detail_id=$Launchh::detail->{'detail_id'}\n";
+                if($Launchh::account_detail->{'account_detail_id'}) #previous entry exists, update!
+                {
+                        $account_detail_desc = $Launchh::dbh->quote($account_detail_desc);
+                        $Launchh::account_detail->{'account_detail_desc'} = $account_detail_desc;
+                        &Launchh::update_account_detail("account_detail_desc=$account_detail_desc");
+                }
+                else #insert new account_detail
+                {
+                        $Launchh::account_detail->{'account_detail_id'} = "NULL";
+                        $Launchh::account_detail->{'detail_id'} = $Launchh::detail->{'detail_id'};
+                        $Launchh::account_detail->{'account_id'} = $Launchh::uid;
+                        $Launchh::account_detail->{'account_detail_name'} = $Launchh::detail->{'detail_name'};
+                        $Launchh::account_detail->{'account_detail_desc'} = $account_detail_desc;
+                        $Launchh::account_detail->{'account_detail_note'} = '';
+                        $Launchh::account_detail->{'account_detail_type'} = 1;
+                        $Launchh::account_detail->{'account_detail_status'} = 1;
+                        &Launchh::insert_account_detail();
+                }
+         }
+       }
+
+       if($submitc eq 'save'){
+           $stage=4; #continue on to account_detail pop
+       }
+       else{ 
+           my $add_idea =  $Launchh::_query->param("detail_28") ;
+           
+           if($ref_from eq '1101000' or $add_idea eq "yes"){
+               $stage = 6;
+           }
+           else{
+               # Profile Confirm Page
+               $stage=8;
+                if($account_status == $Launchh::account->{'account_status'}){
+                    &Launchh::update_account("account_status=$incomplete_status");
+                    send_email_with_idea(0);
+                }
+           }
+       }
+   }
+}  #end stage==5
+
+## Loading HTML Pages
+if($stage == 1 || !verify_stage1()) 
+{
+   &Launchh::select_account($Launchh::uid);
+    if($Launchh::account->{'account_status'} == $cancelled_status ){
+        ##We are going to redirect to a cancelled page!!
+        print $session->header(-location=>'dashboard?mode=cancelled');
+        print $cgi->header(-Cache_control => 'no-cache', -Pragma => 'no-cache');      
+        &Launchh::clean_exit();
+    }
+   print_header();
+   print html_stage1();
+   print_footer();
+   #print &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+}
+
+if($stage==4)  #edit account_details
+{
+   &Launchh::select_account($Launchh::uid);
+   #&Launchh::select_account($account_id);
+   print_header(); # &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+   print html_stage4();
+   print_footer();
+   #print &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+}  #end stage==4
+
+if($stage==6)  # Idea related html block
+{
+   &Launchh::select_account($Launchh::uid);
+   #&Launchh::select_account($account_id);
+   print_header(); # &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+   print html_stage6();
+   print_footer();
+   #print &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+}  #end stage==6
+
+if($stage==7)  # Stripe Account Setup
+{
+   &Launchh::select_account($Launchh::uid);
+   print_header(); # &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+   print html_stage7();
+   print_footer();
+   #print &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+}  #end stage==7
+
+if($stage==8)  #profile confirm page
+{
+   #&Launchh::select_account($Launchh::uid);
+   #&Launchh::select_account($account_id);
+   print_header(); # &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+   print html_stage8();
+   print_footer();
+   #print &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+}  #end stage==8
+
+
+&Launchh::clean_exit();
+
+sub html_stage0 #show detailed account_info to admin or partner
+{
+&Launchh::select_account_type($Launchh::account->{'account_type'});
+&Launchh::select_account_status($Launchh::account->{'account_status'});
+
+my $str = << "EOM";
+				<div class="section-body">
+					<div class="form form-create-profile">
+						<form action="?" method="post">
+							<div class="form-body clearfix">
+					<dt>First Name:</dt>
+					<dd>$Launchh::account->{'account_name_first'}</dd>
+
+                                        <dt>Last Name:</dt>
+                                        <dd>$Launchh::account->{'account_name_last'}</dd>
+                                                            
+                                        <dt>Location:</dt>
+                                        <dd>$Launchh::account->{'account_phone'}</dd>
+                                                            
+                                        <dt>Email:</dt>
+                                        <dd>$Launchh::account->{'account_email'}</dd>
+EOM
+
+my $account_liimg;
+&Launchh::select_account_details("WHERE account_id=$Launchh::account->{'account_id'} AND detail_id NOT IN (11,31,32) GROUP BY detail_id ORDER BY account_detail_id DESC");
+while(&Launchh::next_account_detail())
+{
+   &Launchh::select_detail($Launchh::account_detail->{'detail_id'});
+   #&Launchh::select_milestone($Launchh::account_detail->{'account_detail_name'});
+
+   if($Launchh::account_detail->{'account_detail_name'} eq "account_liimg")
+   {
+	$account_liimg = $Launchh::account_detail->{'account_detail_desc'};
+	next;
+   }
+   my $open;
+   my $close;
+
+   if($Launchh::account_detail->{'account_detail_name'} eq "account_liun" && $Launchh::account_detail->{'account_detail_desc'} !~ /linkedin.com\/in\//is)
+   {
+	$Launchh::account_detail->{'account_detail_desc'} = "https://www.linkedin.com/in/$Launchh::account_detail->{'account_detail_desc'}";
+   }
+ 
+# activate URLs for milestones and liun
+   if( $Launchh::account_detail->{'account_detail_desc'} =~ /^\s*[http|www]/is)
+   {
+	$Launchh::account_detail->{'account_detail_desc'} = "https://".$Launchh::account_detail->{'account_detail_desc'} if( $Launchh::account_detail->{'account_detail_desc'} =~ /^\s*www\./is);
+        $open = "<a href=$Launchh::account_detail->{'account_detail_desc'} target=_blank target-new=tab>";
+        $close = "</a>";
+   }
+
+   $Launchh::detail->{'detail_name'} = "LinkedIn" if($Launchh::detail->{'detail_name'} =~ /liun/);
+
+   $str .= << "EOM";
+
+                                        <dt>$Launchh::detail->{'detail_name'}:</dt>
+					<dd>$open$Launchh::account_detail->{'account_detail_desc'}$close</dd>
+EOM
+}
+$str .= << "EOM";
+				</dl><!-- /.list-user-details -->
+
+				<div class="btns">
+					<a href="/account?$Launchh::HSTR&stage=1" class="button button-gray button-small">Edit</a>
+				</div><!-- /.btns -->
+
+				<div class="user-details-image">
+					<img src="$account_liimg" alt="" />
+				</div><!-- /.user-details-image -->
+
+					</div><!-- /.form form-create-profile -->
+				</div><!-- /.section-body -->
+
+EOM
+
+$str .= << "EOM";
+        <FONT FACE="$Launchh::FONT" SIZE="$Launchh::SIZE">
+        <FORM ACTION="">
+        $Launchh::HIDDEN
+        <INPUT TYPE="hidden" NAME="stage" VALUE="1">
+        </FORM>
+        </FONT>
+EOM
+   
+return $str;
+   
+}
+
+sub html_stage1
+{
+
+    my $first_name = $Launchh::account->{'account_name_first'};
+    my $last_name = $Launchh::account->{'account_name_last'}; 
+    my $headline = $Launchh::account->{'account_desc'};
+    my $linkedin_username = "linkedin url";
+    if(defined $Launchh::account->{'account_note'} && $Launchh::account->{'account_note'} =~ /account_liun: (.+)\n/)
+    {
+       $linkedin_username = $1;
+    }
+    my $location = $Launchh::account->{'account_phone'};
+    my $email = $Launchh::account->{'account_email'} || "email";
+    my $account_summary = "Or paste bio here";
+
+        &Launchh::select_account_details("WHERE detail_id=31 AND account_id=$Launchh::account->{'account_id'} ORDER BY account_detail_id DESC LIMIT 1");
+        &Launchh::next_account_detail();
+        if($Launchh::account_detail->{'account_detail_id'}){
+            $account_summary = $Launchh::account_detail->{'account_detail_desc'};
+        }
+
+=begin
+Blocking for Now. 
+
+        &Launchh::select_account_details("WHERE account_id=$Launchh::account->{'account_id'} AND detail_id='51' AND account_detail_status=1 ORDER BY account_detail_id desc LIMIT 1");
+        &Launchh::next_account_detail();   
+        $ref_from = $Launchh::account_detail->{'account_detail_desc'};
+=cut        
+
+#        <INPUT TYPE="HIDDEN" NAME="account_id" VALUE="$Launchh::uid">
+
+my $error_box = "<div class=\"error\">The headline must be less than 70 Characters.</div>";
+
+$error_box = "" if(length($headline) <= 70);
+
+my $str = << "EOM";
+	<div class="section section-create-profile">
+		<div class="shell">
+				<div class="section-head">
+					<h2>
+						Create Your Profile So People Can Meet You
+
+						<!-- <span>Connect your account to LinkedIn to automatically complete fields</span> -->
+					</h2>
+
+					<div class="section-head-actions">
+						<!-- <a href="#" class="btn btn-linkedin">Connect with LinkedIn</a> -->
+					</div><!-- /.section-head-actions -->
+				</div><!-- /.section-head -->
+                    <div class="section-body">
+
+					<div class="form form-create-profile">		
+                                  <form action="account" method="post" onSubmit="return account_submit();">
+                                            <input type="hidden" name="stage" VALUE="3">
+                                            <input type="hidden" name="mode" VALUE="$mode">
+                                            <input type="hidden" name="ref" VALUE="$ref_from">
+                                                                $Launchh::HIDDEN
+                                        <div class="form-body clearfix">
+                                                        <div class="form-row">
+                                                            <label for="headline" class="form-label">Headline</label>
+                                                            <div class="form-controls">
+                                                                    <textarea cols="30" rows="10" id="account_desc" name="account_desc" class="textarea" placeholder="e.g. Social Entrepreneur Focused On Educational Technology" onkeyup="headline_checker(this.value);">$headline</textarea>
+                                                                    <span id="error_box">$error_box</span>
+                                                            </div><!-- /.form-controls -->
+                                                        </div><!-- /.form-row -->
+
+                                                        <div class="form-row">
+                                                            <label for="first-name" class="form-label">First Name</label>
+                                                            <div class="form-controls">
+                                                            <input type="text" class="field" name="account_name_first" value="$first_name" title="First Name"  id="fName" placeholder="First Name"/>
+                                                            </div><!-- /.form-controls -->
+                                                        </div><!-- /.form-row -->
+                        
+                                                        <div class="form-row">
+                                                            <label for="last-name" class="form-label">Last Name</label>
+                                                            <div class="form-controls">
+                                                            <input type="text" class="field" name="account_name_last" value="$last_name" title="Last Name" id="lName" placeholder="Last Name"/>
+                                                            </div><!-- /.form-controls -->
+                                                        </div><!-- /.form-row -->
+
+                                                        <div class="form-row">
+                                                                <label for="last-name" class="form-label">Location (City, State)</label>
+                                                                <div class="form-controls">
+                                                                <input type="text" class="field" name="account_phone" value="$location" title="Location" id="location" placeholder="Location"/>
+                                                                </div><!-- /.form-controls -->
+                                                        </div><!-- /.form-row -->
+                                                        
+                                            </div><!-- /.form-body -->
+
+                                        <div class="form-actions" >
+                                             <input type=hidden name='submitc' id='submitc' value="continue">
+											<!-- <a href="#" class="btn btn-medium">Save</a> -->
+											<input type="submit" value="Save"  class="btn btn-medium" onclick="\$('#submitc').val('save'); "/>
+											<input type="submit" value="Continue" class="btn btn-medium"/>
+									<!-- *required -->
+								</div><!-- /.form-actions -->          
+                                </form>
+                      </div><!-- /.form form-create-profile -->
+				</div><!-- /.section-body -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-create-profile -->
+        <script>
+            function account_submit(){                
+                    
+                 if(headline_checker(\$('#account_desc').val())){
+                    if(\$('#submitc').val() == 'save'){
+                        alert('Your account is being saved!');
+                    }
+                    return true;
+                }
+                return false;
+            }
+
+            function headline_checker(value){
+                if(value.length > 70) {
+                    \$("#error_box").html('<div class=\"error\">The headline must be less than 70 Characters.</div>');
+                     return false;
+                }
+                else{
+                    \$("#error_box").html("");
+                    return true;
+                }
+            }
+        </script>
+EOM
+
+return $str;
+
+}
+
+sub html_stage2
+{
+my $str = << "EOM";
+<TABLE WIDTH="$Launchh::TABLE_WIDTH" BORDER="0">
+   <TR>
+	<TD>
+	<FONT FACE="$Launchh::FONT" SIZE="$Launchh::SIZE">
+	<FORM ACTION="account" METHOD="POST">
+	<INPUT TYPE="HIDDEN" NAME="stage" VALUE="3">
+	<INPUT TYPE="HIDDEN" NAME="mode" VALUE="$mode">
+        $Launchh::HIDDEN
+	<TABLE BORDER="0" CELLPADDING="3">
+
+		<TR><TD><FONT FACE="$Launchh::FONT" SIZE="$Launchh::SIZE">
+		<INPUT TYPE="hidden" NAME="account_id" value="$Launchh::account->{'account_id'}">
+		</FONT></TD></TR>
+		<TR><TD><FONT FACE="$Launchh::FONT" SIZE="$Launchh::SIZE">
+		Username: &nbsp; <B>$Launchh::account->{'account_username'}</B>
+		<INPUT TYPE="hidden" NAME="account_username" value="$Launchh::account->{'account_username'}">
+		</FONT></TD></TR>
+		<TR><TD><FONT FACE="$Launchh::FONT" SIZE="$Launchh::SIZE">
+		Password: &nbsp; <B>$Launchh::account->{'account_password'}</B>
+		<INPUT TYPE="hidden" NAME="account_password" value="$Launchh::account->{'account_password'}">
+		</FONT></TD></TR>
+		<TR><TD><FONT FACE="$Launchh::FONT" SIZE="$Launchh::SIZE">
+		First Name: &nbsp; <B>$Launchh::account->{'account_name_first'}</B>
+		<INPUT TYPE="hidden" NAME="account_name_first" value="$Launchh::account->{'account_name_first'}">
+		</FONT></TD></TR>
+		<TR><TD><FONT FACE="$Launchh::FONT" SIZE="$Launchh::SIZE">
+		Last Name: &nbsp; <B>$Launchh::account->{'account_name_last'}</B>
+		<INPUT TYPE="hidden" NAME="account_name_last" value="$Launchh::account->{'account_name_last'}">
+		</FONT></TD></TR>
+		<TR><TD><FONT FACE="$Launchh::FONT" SIZE="$Launchh::SIZE">
+		Phone: &nbsp; <B>$Launchh::account->{'account_location'}</B>
+		<INPUT TYPE="hidden" NAME="account_location" value="$Launchh::account->{'account_location'}">
+		</FONT></TD></TR>
+		<TR><TD><FONT FACE="$Launchh::FONT" SIZE="$Launchh::SIZE">
+		Email: &nbsp; <B>$Launchh::account->{'account_email'}</B>
+		<INPUT TYPE="hidden" NAME="account_email" value="$Launchh::account->{'account_email'}">
+		</FONT></TD></TR>
+		<TR><TD><FONT FACE="$Launchh::FONT" SIZE="$Launchh::SIZE">
+		Account Desc: &nbsp; <B>$Launchh::account->{'account_desc'}</B>
+		<INPUT TYPE="hidden" NAME="account_desc" value="$Launchh::account->{'account_desc'}">
+		</FONT></TD></TR>
+
+		<TR><TD>
+		<FONT FACE="$Launchh::FONT" SIZE="$Launchh::SIZE">
+		If you are satisfied with your responses, click Done, otherwise, click Back.
+		</FONT>
+		</TD></TR>
+		<TR><TD>
+		<INPUT TYPE="submit" NAME="Done" VALUE="Done">
+		</TD></TR>
+	</TABLE>
+	</FORM>
+	</FONT>
+	</TD>
+   </TR>
+
+</TABLE>
+EOM
+
+return $str;
+
+}
+
+sub html_stage8
+{
+# Profile Confirm page
+    my $first_name = $Launchh::account->{'account_name_first'};
+    my $last_name = $Launchh::account->{'account_name_last'}; 
+    my $fullname = "$first_name $last_name";
+    
+    my $account_verified = $Launchh::account->{'account_verified'};
+    
+    #my $fb_app_id = "309437425817038";
+    my $fb_app_id = $Launchh::FB_APP_ID;
+    
+    my $page_url = 'http';
+    if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off") {
+        $page_url .= "s";
+    }
+    $page_url .= "://"; 
+
+    $page_url .= $ENV{SERVER_NAME};
+    $page_url .= "/profile/$Launchh::u";
+    
+    my $str = "";
+    
+    if($account_verified == 1){
+    
+        my @detailArr;
+        &Launchh::select_details("WHERE detail_type=2 AND detail_status=1 AND detail_id IN (47,28) ORDER BY CAST(detail_note AS DECIMAL(5,1))");
+        while(&Launchh::next_detail())
+        {
+           &Launchh::select_question($Launchh::detail->{'detail_desc'});
+           
+           my $question_limit = $Launchh::question->{'question_limit'};
+           my $detail_note = $Launchh::detail->{'detail_note'}  ;
+
+           #select user's previous answer, if any
+           &Launchh::select_account_details("WHERE account_id=$Launchh::uid AND detail_id=$Launchh::detail->{'detail_id'} AND account_detail_status=1 ORDER BY account_detail_id desc LIMIT 1");
+           &Launchh::next_account_detail();
+       
+           my $detail_value = $Launchh::account_detail->{'account_detail_desc'};
+           my $detail_id = $Launchh::detail->{'detail_id'};
+           
+           $detailArr[$detail_id] = $detail_value;        
+        }
+        
+        my $twitter= $detailArr[47];
+        my $add_idea= $detailArr[28];
+
+        &Launchh::select_stripe_connect("WHERE account_id= '$Launchh::uid'");
+        &Launchh::next_stripe_connect();       
+        my $stripe_connect_id = $Launchh::stripe_connect_detail->{'stripe_connect_id'};
+           
+        if($stripe_connect_id ne ''){
+        }
+
+        if($add_idea eq "no"){
+        #    send_email_without_idea();
+        }
+        else{
+          #  send_email_with_idea();
+        }
+    
+        my $twitter_name = '';
+        if( $twitter =~/.*twitter.com\/(.*?$)/){
+            $twitter_name = $1;
+        }
+        $twitter_name = $twitter if($twitter_name eq '');
+
+    $str = << "EOM";
+
+		<div class="section section-confirm">
+			<div class="shell">
+				<div class="section-head">
+					<h2>Congrats! Now promote your profile to engage your community.</h2>
+				</div><!-- /.section-head -->
+
+				<div class="section-body">
+					<p>Share your unique profile page link with your network via the web, social media and email.</p>
+				</div><!-- /.section-body -->
+
+				<div class="section-actions">
+					<div class="btn-wrap">
+                                <a href="#" onClick="javascript:popupwindow('https://www.facebook.com/sharer/sharer.php?app_id=$fb_app_id&sdk=joey&u=$page_url&display=popup&ref=plugin','Click here to support entrepreneurship by $fullname','650','350')" class="btn btn-fb-share"></a> 
+					</div><!-- /.btn-wrap -->
+
+					<div class="btn-wrap">
+                                   <a href="#" onClick="javascript:popupwindow('https://twitter.com/intent/tweet?text=Join me supporting %23$twitter_name by $first_name $last_name&url=$page_url&via=sivicorp','title','650','350')" class="btn btn-tw-tweet"></a>
+                    </div><!-- /.btn-wrap -->
+                    
+                    <div class="btn-wrap">
+                                    <a href="../ajax/embed-profile?tsu=$Launchh::account->{'account_username'}"  class="btn btn-embed-share modal-trigger"></a>
+					</div><!-- /.btn-wrap -->
+                
+                </div><!-- /.section-actions -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-confirm -->
+
+		<div class="section section-user-interactions">
+			<div class="shell">
+				<div class="section-body">
+					<ul class="interactions">
+						<li class="interaction">
+							<h3>share</h3>
+
+							<p>Refer this page to someone else.</p>
+                                    <a href="ajax/refer-friend?firstname=$first_name&uname=$Launchh::u" class="btn btn-medium modal-trigger">Refer to a Friend</a> 
+						</li><!-- /.interaction -->
+
+						
+						<li class="interaction">
+							<h3>LINK</h3>
+						
+							<p>Copy the unique web link from your profile page to send.</p>
+						
+							<a href="./profile/$Launchh::account->{'account_username'}" class="btn btn-medium">Get Link</a>
+						</li><!-- /.interaction -->
+                        
+						<li class="interaction">
+							<h3>discover</h3>
+						
+							<p>Check out other entrepreneurs and ideas!</p>
+						
+							<a href="./discover" class="btn btn-medium">Start Discovering</a>
+						</li><!-- /.interaction -->
+                        
+					</ul><!-- /.interactions -->
+				</div><!-- /.section-body -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-user-interactions -->
+        <script>
+            function popupwindow(url, title, w, h) {
+	    
+              url = url.replace("#","%23") 
+              var left = (screen.width/2)-(w/2);
+              var top = (screen.height/2)-(h/2);
+              return window.open(url, title, 'toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=no, resizable=no, copyhistory=no, width='+w+', height='+h+', top='+top+', left='+left);
+            }         
+        
+        </script>
+EOM
+
+    }
+    else{        
+        my $username = $Launchh::account->{'account_username'};
+        $username = $Launchh::dbh->quote($username) if($username !~ /^'/); 
+           
+        my $cur_date = POSIX::strftime('%Y-%m-%d %H:%M:%S', localtime);
+        &Launchh::select_account_verification("WHERE account_verification_taken = '0' and account_verification_expire > '$cur_date' and account_verification_username = $username");
+        &Launchh::next_account_verification();
+        
+        my $account_verification_id = $Launchh::account_verification->{'account_verification_id'};
+        #print "account_verification_id [$account_verification_id]";        
+        if(!$account_verification_id){
+            my $rand = rand(50000);
+            my $randomstr = md5_hex("$username" , "$rand");
+            
+            my ($year,$mon,$day,$hour,$minute,$second) = Add_Delta_DHMS(Today_and_Now(), +2,0,0,0);
+              
+            my $expire_date = "$year-$mon-$day $hour:$minute:$second";
+
+            $Launchh::account_verification->{'account_verification_username'} = $username;
+            $Launchh::account_verification->{'account_verification_token'} = $randomstr;
+            $Launchh::account_verification->{'account_verification_taken'} = 0;
+            $Launchh::account_verification->{'account_verification_expire'} = $expire_date;   
+            my $verification_id = &Launchh::insert_account_verification();
+            
+            send_verification_email($randomstr);            
+        }
+        
+        $str = << "EOM";
+        <!--    [$account_verification_id] [$cur_date] -->
+		<div class="section section-confirm">
+			<div class="shell">
+                    <br><br><br><br><br>
+				<div class="section-head">
+					<h2>Now Activate Your Profile.</h2>
+				</div><!-- /.section-head -->
+
+				<div class="section-body">
+					<p>In order to activate your profile, please click the activation link we just sent to your email address.</p>
+				</div><!-- /.section-body -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-confirm -->
+        
+        <div class="section section-user-interactions">
+			<div class="shell">
+				<div class="section-body">
+                    <br><br><br><br>
+                    <br><br><br><br>
+                    <br><br><br><br>
+				</div><!-- /.section-body -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-user-interactions -->                
+EOM
+
+    }
+
+
+return $str;
+
+}
+
+sub verify_stage1
+{
+#		if($Launchh::account->{'account_id'} eq "" || ($Launchh::account->{'account_id'} =~ /\D/is))
+#		{
+#		$Launchh::ERROR .= "Please enter a valid Id<BR>";
+#		return 0;
+#		}
+#		if($Launchh::account->{'account_username'} eq "" )
+#		{
+#		$Launchh::ERROR .= "Please enter a valid Username<BR>";
+#		return 0;
+#		}
+#		if($Launchh::account->{'account_password'} eq "" )
+#		{
+#		$Launchh::ERROR .= "Please enter a valid Password<BR>";
+#		return 0;
+#		}
+		if($Launchh::account->{'account_name_first'} eq "" || $Launchh::account->{'account_name_first'} eq "First Name")
+		{
+		$Launchh::ERROR .= "Please enter your First Name<BR>";
+		return 0;
+		}
+		if($Launchh::account->{'account_name_last'} eq "" || $Launchh::account->{'account_name_last'} eq "Last Name")
+		{
+		$Launchh::ERROR .= "Please enter your Last Name<BR>";
+		return 0;
+		}
+		if(($Launchh::account->{'account_phone'} eq "" || $Launchh::account->{'account_phone'} eq "Location") && 0)
+		{
+		$Launchh::ERROR .= "Please enter your Location as City, State, Country<BR>";
+		return 0;
+		}
+#		if($Launchh::account->{'account_email'} eq "" )
+#		{
+#		$Launchh::ERROR .= "Please enter a valid Email<BR>";
+#		return 0;
+#		}
+#		if($Launchh::account->{'account_desc'} eq "" )
+#		{
+#		$Launchh::ERROR .= "Please enter a valid Desc<BR>";
+#		return 0;
+#		}
+#		if($Launchh::account->{'account_note'} eq "" )
+#		{
+#		$Launchh::ERROR .= "Please enter a valid Note<BR>";
+#		return 0;
+#		}
+#		if(!$Launchh::account->{'account_agree'})
+#		{
+#		$Launchh::ERROR .= "Please check Agree with our Terms Of Service<BR>";
+#		return 0;
+#		}
+#		if($Launchh::account->{'account_created'} eq "" )
+#		{
+#		$Launchh::ERROR .= "Please enter a valid Created<BR>";
+#		return 0;
+#		}
+#		if($Launchh::account->{'account_accessed'} eq "" )
+#		{
+#		$Launchh::ERROR .= "Please enter a valid Accessed<BR>";
+#		return 0;
+#		}
+#		if($Launchh::account->{'account_type'} eq "" || ($Launchh::account->{'account_type'} =~ /\D/is))
+#		{
+#		$Launchh::ERROR .= "Please enter a valid Type<BR>";
+#		return 0;
+#		}
+#		if($Launchh::account->{'account_status'} eq "" || ($Launchh::account->{'account_status'} =~ /\D/is))
+#		{
+#		$Launchh::ERROR .= "Please enter a valid Status<BR>";
+#		return 0;
+#		}
+
+
+return 1;
+}
+
+
+sub html_stage4 #gather account_details (profile questions, dependent on profile_type)
+{
+
+my $str = << "EOM";
+        <!-- submitc : $submitc -->
+        <div class="section section-create-profile">
+                        <div class="shell">
+                        
+                                <div class="section-head">
+                                        <h2>
+                                                Create Your Profile So People Can Meet You
+                                                <!-- <span>Connect your account to LinkedIn to automatically complete fields</span> -->
+                                        </h2>
+
+                                        <div class="section-head-actions">
+                                                <!-- <a href="#" class="btn btn-linkedin">Connect with LinkedIn</a> -->
+                                        </div><!-- /.section-head-actions -->
+                                </div><!-- /.section-head -->
+                                
+                                <div class="section-body">
+                                        <div class="section-head-actions">
+                                                <font color="red">$Launchh::ERROR</font>
+                                        </div><!-- /.section-head-actions -->
+
+                                        <div class="form form-create-profile">
+                                            <!-- <form action="account" method="post" onsubmit="alert('Your Profile is being Updated!');return true;"> -->
+                                            <form action="account" method="post" onsubmit="return true;">
+                                            <input type="hidden" name="account_id" value="$Launchh::uid">
+                                            <input type="hidden" name="stage" value="5">
+                                            <input type="hidden" name="mode" value="$mode">
+                                                    $Launchh::HIDDEN
+                                            <div class="form-body clearfix">
+
+EOM
+
+my $last_question_desc = '';
+my $parent_select_detail_id;
+
+my $ds = '$';
+my $chosen_config_params = "'.chosen-select' : {}";
+my $chosen_config_params_alert = "";
+my $other_jquery_params = "";
+my $reached_question_limit =0;
+my $idea_head_printed = 0;
+
+&Launchh::select_details("WHERE detail_type=2 AND detail_status=1 AND CAST(detail_note AS DECIMAL(5,1))> 0 AND detail_name NOT LIKE 'Idea-%' ORDER BY CAST(detail_note AS DECIMAL(5,1))");
+while(&Launchh::next_detail())
+{
+   &Launchh::select_question($Launchh::detail->{'detail_desc'});
+   my $question_limit = $Launchh::question->{'question_limit'} * 1;
+
+   my $detail_note = $Launchh::detail->{'detail_note'}  ;
+
+   #select user's previous answer, if any
+   &Launchh::select_account_details("WHERE account_id=$Launchh::uid AND detail_id=$Launchh::detail->{'detail_id'} AND account_detail_status=1 ORDER BY account_detail_id desc LIMIT 1");
+   &Launchh::next_account_detail();
+
+   if($Launchh::account->{'account_type'} == 4) #ask mentor questions instead
+   {
+	if($Launchh::question->{'question_note'})
+	{
+	   $Launchh::question->{'question_desc'} = $Launchh::question->{'question_note'};
+	}
+   }
+
+   next if(!$Launchh::question->{'question_desc'});
+   
+   if($Launchh::question->{'question_desc'} eq $last_question_desc){
+        $Launchh::question->{'question_desc'} = "...";
+        $Launchh::question->{'question_name'} = ""  if($Launchh::question->{'question_type'} == 2);
+   }
+   if($Launchh::question->{'question_desc'} ne "..."){
+        $last_question_desc = $Launchh::question->{'question_desc'};
+        $parent_select_detail_id = $Launchh::detail->{'detail_id'}."_parent";
+   }
+
+    my $no_select_div = 0;
+    if( $Launchh::question->{'question_desc'} eq "..." && $Launchh::question->{'question_type'} == 10){
+        $no_select_div = 1 ;
+        $reached_question_limit++;
+    }
+
+
+    if(!$idea_head_printed && $detail_note > 13){
+        $idea_head_printed = 1;
+        $str .= << "EOM";
+                                <div class="form form-create-profile idea-section">
+                                                 <!-- <form action="?" method="post"> -->
+										<div class="form-head">
+											<h2>Tell Us About Your Idea</h2>
+										</div><!-- /.form-head -->
+                                                    <div class="form-body clearfix">
+EOM
+
+    }
+    
+=begin
+    Question Type: 11 :: Profile Picture or Videos
+=cut
+    
+    if( $Launchh::question->{'question_type'}  == 11){
+        
+        my $type = "videos";
+        my $uploadText = "Video";
+        my $allowedTypes  = "vob,avi,mpg,mpeg,ogg,dat,mov,mp4";
+        
+        if($Launchh::detail->{'detail_id'} == 25) {
+            $type = "images";
+            $uploadText = "Photo";
+            $allowedTypes ="jpg,png,gif,jpeg,bmp";
+        }
+        elsif($Launchh::detail->{'detail_id'} == 41) {
+            $type = "idea-images";
+            $uploadText = "Idea Photo";
+            $allowedTypes ="jpg,png,gif,jpeg,bmp";
+        }
+        
+        my $detail_value = '';
+        $detail_value = $Launchh::account_detail->{'account_detail_desc'} if(defined $Launchh::account_detail->{'account_detail_desc'});
+  
+        $str .= << "EOM";
+                        <input type="hidden" name="detail_$Launchh::detail->{'detail_id'}" value="$detail_value"  id="detail_$Launchh::detail->{'detail_id'}">
+                        
+                        <div class="form-row">
+                            <label for="upload-$type" class="form-label">
+                                <!--Profile $uploadText                                 -->
+					$Launchh::question->{'question_name'}
+                                        <br><small>$Launchh::question->{'question_note'}</small>
+                            <span class="form-hint form-hint-alt">
+                            </label>
+
+                            <div class="form-controls">
+                                        
+                                <div id="mulitplefileuploader_$type">Upload</div>
+                               <div id="status_$type"></div>                               
+                            </div><!-- /.form-controls -->                            
+                        </div><!-- /.form-row -->	                       
+                                
+                    
+                    
+                    <script>
+                            $ds(document).ready(function()
+                            {
+                            var settings = {
+                                url: "uploader/upload.php?user_id=$Launchh::account->{'account_id'}&upload_type=$type",
+                                dragDrop:true,
+                                multiple: false,
+                                fileName: "myfile",
+                                allowedTypes:"$allowedTypes",	
+                                returnType:"json",
+                                 onSuccess:function(files,data,xhr)
+                                {
+                                        $ds("#detail_$Launchh::detail->{'detail_id'}").val(data[0]);
+                                        $ds("#status_$type").html("<div>"+data[0]+" Uploaded</div>");      
+                                    //alert($ds("#detail_25").val());
+                                },
+                                showDelete:true,
+                                deleteCallback: function(data,pd)
+                                {
+                                    for(var i=0;i<data.length;i++)
+                                    {
+                                    $ds.post("uploader/delete.php?user_id=$Launchh::account->{'account_id'}",{op:"delete",name:data[i]},
+                                    function(resp, textStatus, jqXHR)
+                                    {
+                                        //Show Message  
+                                        $ds("#status_$type").html("<div>File Deleted</div>");      
+                                        $ds("#detail_$Launchh::detail->{'detail_id'}").val('');
+                                    });
+                                     }      
+                                    pd.statusbar.hide(); //You choice to hide/not.
+                                }
+                            }
+                            var uploadObj = $ds("#mulitplefileuploader_$type").uploadFile(settings);
+                            });                    
+                    </script>                    
+EOM
+        
+        next;
+    }    
+    
+    if(!$no_select_div &&  $Launchh::question->{'question_type'} != 3 &&  $Launchh::question->{'question_type'} != 8){
+       my $question_desc = $Launchh::question->{'question_desc'}; 
+       $question_desc = '' if($question_desc eq "...");
+       
+       $str .= << "EOM";
+					<div class="form-row cf">
+							<label for="$Launchh::question->{'question_name'}" class="form-label">$Launchh::question->{'question_name'}<br><small>$question_desc</small></label>
+						<div class="form-controls">
+							<div class="select">
+EOM
+    }
+
+=begin
+    Question Type: 6 & 7 :: Multi Alpha
+=cut
+
+# 
+
+   if($Launchh::question->{'question_type'} == 6 || $Launchh::question->{'question_type'} == 7 )  #multi-alpha
+   {
+	my $multiple = "";
+	$multiple = "multiple" if($Launchh::question->{'question_type'} == 7 );  #xxx unused
+	$str .= << "EOM";
+                                                            <select data-placeholder="Select $Launchh::detail->{'detail_name'}" style="width:250px;" name="detail_$Launchh::detail->{'detail_id'}" id="detail_$Launchh::detail->{'detail_id'}"  class="chosen-select" tabindex="1">
+                                                                        <!--
+                                                                                <select name="detail_$Launchh::detail->{'detail_id'}" $multiple>-->
+                                                                                <option>Select $Launchh::detail->{'detail_name'}
+                                                                       
+EOM
+	&Launchh::select_answers("WHERE question_id=$Launchh::question->{'question_id'} AND answer_status=1 ORDER BY answer_desc");
+	while(&Launchh::next_answer())
+	{
+	   $Launchh::answer->{'answer_desc'} =~ s/^\s*(.+?)\s*$/$1/is;
+	   my $selected = "";
+       if(defined $Launchh::account_detail->{'account_detail_desc'} and  $Launchh::answer->{'answer_desc'}){
+            $selected = "selected" if($Launchh::account_detail->{'account_detail_desc'} eq $Launchh::answer->{'answer_desc'});
+        }
+
+	   $str .= << "EOM";
+                                                                    <option name="$Launchh::answer->{'answer_id'}" $selected>$Launchh::answer->{'answer_desc'}
+EOM
+	}
+        $str .= << "EOM";
+                                                    </select>
+                                                    <script>
+                                                                $ds(document).ready(function()
+                                                                     {            
+                                                                                $ds("#detail_$Launchh::detail->{'detail_id'}_chosen").width(250);
+                                                                    }       
+                                                                );                                                
+
+                                                    </script>
+                                                    
+EOM
+   }#endif multi-alpha
+   
+   
+=begin
+    Question Type: 10:: Multi Alpha Disabled
+=cut
+
+   elsif($Launchh::question->{'question_type'} == 10)  #multi-alpha disabled
+   {
+	
+    print STDERR "\nquestion_limit [$question_limit]\n";	
+    
+    if($question_limit != 0){
+        if($chosen_config_params ne '') {
+            $chosen_config_params .= ",";
+        }
+        $chosen_config_params .= "'.detail_$Launchh::detail->{'detail_id'}_parent'  : {max_selected_options:$question_limit}";
+        $chosen_config_params_alert .= '$(".detail_'.$Launchh::detail->{"detail_id"}.'_parent").bind("chosen:maxselected", function () { alert("Maximum '.$question_limit.' '. $Launchh::detail->{"detail_name"}.' allowed");} );';
+    }
+    
+    if(!$no_select_div){
+        $str .= << "EOM";
+                                <script>
+                                /*Array Initialization*/
+                                    var arr_detail_$parent_select_detail_id = new Array();
+                                </script>
+EOM
+        }
+        my $detail_pt_val = '';
+        $detail_pt_val = $Launchh::account_detail->{'account_detail_desc'} if(defined $Launchh::account_detail->{'account_detail_desc'});
+    $str .= << "EOM";
+                                    <input type=hidden name="detail_$Launchh::detail->{'detail_id'}" id="detail_$Launchh::detail->{'detail_id'}" value="$detail_pt_val">
+                                    <script>arr_detail_$parent_select_detail_id.push("detail_$Launchh::detail->{'detail_id'}")</script>
+EOM
+        
+
+    if(!$no_select_div){
+        $str .= << "EOM";
+        
+                                    <select data-placeholder="Select $Launchh::detail->{'detail_name'}" style="width:250px;" name="detail_$Launchh::detail->{'detail_id'}_parent"  multiple class="detail_$Launchh::detail->{'detail_id'}_parent" tabindex="8">
+EOM
+    }
+    
+	&Launchh::select_answers("WHERE question_id=$Launchh::question->{'question_id'} AND answer_status=1 ORDER BY answer_desc");
+	while(&Launchh::next_answer())
+	{
+	   $Launchh::answer->{'answer_desc'} =~ s/^\s*(.+?)\s*$/$1/is;
+	   my $selected = "" ;
+       if (defined $Launchh::account_detail->{'account_detail_desc'} and defined $Launchh::answer->{'answer_desc'}){
+            $selected = "selected" if($Launchh::account_detail->{'account_detail_desc'} eq $Launchh::answer->{'answer_desc'});
+       }
+       
+       if(!$no_select_div){
+            $str .= << "EOM";
+                                    <option name="$Launchh::answer->{'answer_id'}" $selected>$Launchh::answer->{'answer_desc'}</option>
+EOM
+     }
+     else{
+            if(defined $selected && $selected eq 'selected'){
+            $str .=<<"EOM";
+            
+                                    <script>
+                                       var selected=$ds(".detail_$parent_select_detail_id option:selected").map(function(){ return this.value }).get();
+                                        selected.push("$Launchh::answer->{'answer_desc'}");
+                                        $ds('.detail_$parent_select_detail_id').val(selected);            
+                                    </script>
+                                    
+EOM
+            }
+     }
+    
+	}
+    
+    if(!$no_select_div){
+            $str .= << "EOM";
+                </select>
+EOM
+    }
+    
+    if($reached_question_limit + 1 == $question_limit){
+        $str .=<<"EOM";
+        
+                <script>
+
+                    $ds( ".detail_$parent_select_detail_id" )
+                      .change(function () {
+                            var selected=$ds(".detail_$parent_select_detail_id option:selected").map(function(){ return this.value }).get();
+                            var inx = 0;
+                            //alert(selected);
+                            $ds.each( arr_detail_$parent_select_detail_id, function( index, value ){
+                                    $ds('#'+value).val(selected[inx]);
+                                    inx++;
+                            });
+                            
+
+
+                      })
+                      .change();
+                </script>                
+            
+EOM
+    }
+   } #endif multi-alpha selected-disabled
+
+=begin
+    Question Type: 3 :: Multi-Choice ID SORT
+=cut
+
+   elsif( $Launchh::question->{'question_type'} == 3 )  #Multi-Choice ID SORT
+   {
+   $str .= << "EOM";
+   
+                                        <div class="form-row">
+                                            <label for="$Launchh::question->{'question_name'}" class="form-label">
+                                                        $Launchh::question->{'question_name'}<br><small>$Launchh::question->{'question_note'}</small>
+                                            </label>
+                                            <div class="form-controls">
+EOM
+    my $index = 1;   
+	&Launchh::select_answers("WHERE question_id=$Launchh::question->{'question_id'} AND answer_status=1 ORDER BY answer_desc");
+	while(&Launchh::next_answer())
+	{
+	   $Launchh::answer->{'answer_desc'} =~ s/^\s*(.+?)\s*$/$1/is;
+	   my $checked = "";
+       if( defined $Launchh::account_detail->{'account_detail_desc'} and defined $Launchh::answer->{'answer_desc'}){
+            if (index($Launchh::account_detail->{'account_detail_desc'} , $Launchh::answer->{'answer_desc'}) != -1) {
+                $checked = "checked";
+            } 
+        }
+       
+            $str .= << "EOM";
+                                                <div class="checkbox custom-checkbox">
+                                                     <input type="checkbox" name="detail_$Launchh::detail->{'detail_id'}_$index" id="detail_$Launchh::detail->{'detail_id'}_$index"  value="$Launchh::answer->{'answer_desc'}" onclick="javascript:detail_$Launchh::detail->{'detail_id'}_controller(this);" $checked/>
+
+                                                    <label for="detail_$Launchh::detail->{'detail_id'}_$index">
+                                                        <span class="custom-checkbox-fake"></span>
+                                                                        $Launchh::answer->{'answer_desc'}
+                                                    </label>
+                                                </div>
+EOM
+    $index++;
+    }
+            my $detail_value = $Launchh::account_detail->{'account_detail_desc'}; # || $Launchh::detail->{'detail_name'};
+
+            $str .= << "EOM";
+            
+                                <INPUT TYPE="HIDDEN" NAME="detail_$Launchh::detail->{'detail_id'}" id="detail_$Launchh::detail->{'detail_id'}" VALUE="$detail_value">
+                                <script>
+                                            function detail_$Launchh::detail->{'detail_id'}_controller(pointer) {
+                                            
+                                                var genre_string = $ds("#detail_$Launchh::detail->{'detail_id'}").val();
+                                                var parent_val = genre_string.split(',');
+                                                
+                                                //alert(parent_val.length);
+                                    
+                                                var pointer_val = pointer.value;
+
+                                                if(pointer.checked){
+                                                      var pushItem = pointer_val;
+                                                      if( $ds.inArray(pushItem, parent_val) == -1){
+                                                            parent_val.push( pointer_val );
+                                                     }
+                                                }
+                                                else{
+                                                            var removeItem = pointer_val;
+                                                            parent_val = jQuery.grep(parent_val, function(value) {
+                                                                    return value != removeItem;
+                                                            });
+                                                }
+                                    
+                                                $ds("#detail_$Launchh::detail->{'detail_id'}").val(parent_val);
+                                                //alert(parent_val);
+                                                //alert( $ds("#detail_$Launchh::detail->{'detail_id'}").val());
+                                            }
+                        </script>
+                        
+EOM
+    
+   }
+
+=begin
+    Question Type: 8 :: Radio Select
+=cut
+
+   elsif( $Launchh::question->{'question_type'} == 8 )  #Radio Select
+   {
+        $str .= << "EOM";
+                        <div class="form-row">
+						<label for="$Launchh::question->{'question_name'}" class="form-label">
+                                    $Launchh::question->{'question_desc'}
+                                </label>
+                                   <div class="form-controls custom-radio-alt">
+EOM
+
+	   my $checked_yes = "custom-input-checked";
+	   my $checked_no = "";
+       
+       if (defined $Launchh::account_detail->{'account_detail_desc'} and $Launchh::account_detail->{'account_detail_desc'} eq "no") {
+            $checked_yes = "";
+            $checked_no = "custom-input-checked";
+       }
+       
+            $str .= << "EOM";
+                                                  <div class="radio custom-radio $checked_yes">
+                                                            <input type="radio" name="detail_$Launchh::detail->{'detail_id'}_radio" id="detail_$Launchh::detail->{'detail_id'}_yes" onclick="javascript:detail_$Launchh::detail->{'detail_id'}_controller(this);" value="yes" >
+
+                                                            <label for="detail_$Launchh::detail->{'detail_id'}_yes">
+                                                                    <span class="custom-radio-fake"></span>
+                                                                            Yes
+                                                            </label>            
+										</div><!-- /.radio custom-radio -->
+                                                
+                                                
+                                                <div class="radio custom-radio $checked_no" >
+											<input type="radio" name="detail_$Launchh::detail->{'detail_id'}_radio" id="detail_$Launchh::detail->{'detail_id'}_no" onclick="javascript:detail_$Launchh::detail->{'detail_id'}_controller(this);" value="no" >
+
+											<label for="detail_$Launchh::detail->{'detail_id'}_no">
+												<span class="custom-radio-fake"></span>
+												No
+											</label>
+                                            </div><!-- /.radio custom-radio -->
+
+
+EOM
+
+            my $detail_value = '';
+            $detail_value = $Launchh::account_detail->{'account_detail_desc'} if(defined $Launchh::account_detail->{'account_detail_desc'});
+            
+            $other_jquery_params = $ds.'("#detail_'.$Launchh::detail->{"detail_id"}.'_'.$detail_value.'").prop("checked", true);' if( $detail_value ne '');
+            $other_jquery_params .= $ds.'("#detail_'.$Launchh::detail->{"detail_id"}.'_'.$detail_value.'").parent().addClass("custom-input-checked");' if($detail_value ne '');
+
+            $str .= << "EOM";
+            
+                                                <INPUT TYPE="HIDDEN" NAME="detail_$Launchh::detail->{'detail_id'}" id="detail_$Launchh::detail->{'detail_id'}" VALUE="$detail_value">
+                                                <script>
+                                         
+                                                                $ds(document).ready(function()
+                                                                     {            $ds("#detail_$Launchh::detail->{'detail_id'}_$detail_value").prop("checked", true);
+                                                                                 $ds("#detail_$Launchh::detail->{'detail_id'}_$detail_value").parent().addClass("custom-input-checked");
+                                                                    }       
+                                                                );                                                
+                                                                
+                                                                function detail_$Launchh::detail->{'detail_id'}_controller(pointer) {
+                                                                    $ds("#detail_$Launchh::detail->{'detail_id'}").val(pointer.value);
+                                                                } 
+                                                </script>
+                            
+EOM
+  }
+
+
+   else
+   {
+        #my $detail_value = $Launchh::account_detail->{'account_detail_desc'} || $Launchh::detail->{'detail_name'};
+        my $detail_value = $Launchh::account_detail->{'account_detail_desc'} || '';
+        my $placeholder = $Launchh::question->{'question_note'};
+        
+        $placeholder = "Facebook Page URL" if($Launchh::detail->{'detail_id'} == 46) ;
+        $placeholder = "Twitter Page URL" if($Launchh::detail->{'detail_id'} == 47) ;
+        
+
+=begin
+    Question Type: 1 :: Text Area
+=cut
+        
+        if($Launchh::question->{'question_type'} == 1){
+            $str .= << "EOM";
+                                                            <textarea cols="30" rows="10" name="detail_$Launchh::detail->{'detail_id'}"  class="textarea" placeholder="$placeholder">$Launchh::account_detail->{'account_detail_desc'}</textarea>
+EOM
+        }
+        else{
+	    #$detail_value = $Launchh::account_detail->{'account_detail_desc'} || $Launchh::detail->{'detail_desc'};
+            $str .= << "EOM";
+                                            <input type="text" class="field" name="detail_$Launchh::detail->{'detail_id'}" value="$detail_value"  placeholder="$placeholder" />
+EOM
+             }
+   }#end else
+   
+    if ($Launchh::question->{'question_type'} == 3){
+   $str .= << "EOM";
+						</div><!-- /.form-controls -->
+					</div><!-- /.form-row -->
+EOM
+    }
+   elsif(!$no_select_div  ){
+   $str .= << "EOM";
+							</div><!-- /.select -->
+						</div><!-- /.form-controls -->
+					</div><!-- /.form-row -->
+                    
+EOM
+    }
+}#end while next_detail
+
+if($idea_head_printed){
+    $str .= << "EOM";
+                                                    </div><!-- /.form-body -->
+								</div>			
+							</div><!-- /.form-body -->
+EOM
+
+}
+
+$str .= << "EOM";
+                                                                <div class="form-actions">
+                                                                        <input type=hidden name='submitc'  id='submitc' value="continue">
+                                                                        <input type="submit" value="Back" class="btn btn-medium" onclick="javascript:\$('#submitc').val('back')"/>
+                                                                        <input type="submit" value="Save"  class="btn btn-medium" onclick="javascript:alert('Your account is being saved!');\$('#submitc').val('save')"/>
+                                                                        <!-- <a href="#" class="btn btn-medium">Preview</a> -->
+                                                                        <input type="submit" value="Continue" class="btn btn-medium" />                                                                
+                                                                </div><!-- /.form-actions -->
+                                                        </div><!-- /.form-body -->
+                                    </form>
+                                        </div><!-- /.form form-create-profile -->
+                                </div><!-- /.section-body -->
+                        </div><!-- /.shell -->
+                </div><!-- /.section section-create-profile -->
+  
+EOM
+
+$str.= chosen_string($chosen_config_params, $chosen_config_params_alert);
+
+return $str;
+ 
+}  #end sub html_stage4 
+
+
+sub html_stage6 #gather idea related information here
+{
+
+my $str = << "EOM";
+        <div class="section section-create-profile">
+                        <div class="shell">
+                        
+                                <div class="section-head">
+                                    <h2>Tell Us About Your Idea</h2>
+                                </div><!-- /.section-head -->
+                                
+                                <div class="section-body">
+                                        <div class="section-head-actions">
+                                                <font color="red">$Launchh::ERROR</font>
+                                        </div><!-- /.section-head-actions -->
+
+                                        <div class="form form-create-profile">
+                                            <!-- <form action="account" method="post" onsubmit="alert('Your Idea is being Updated!');return true;"> -->
+                                            <form action="account" method="post" onSubmit=" return account_submit();"> 
+                                            <input type="hidden" name="account_id" value="$Launchh::uid">
+                                            <input type="hidden" name="stage" value="6">
+                                            <input type="hidden" name="mode" value="$mode">
+                                            <input id="error_happened" type="hidden" name="error_happened" value="0">
+                                            
+                                                    $Launchh::HIDDEN
+                                            <div class="form-body clearfix">
+
+EOM
+
+my $last_question_desc = '';
+my $parent_select_detail_id;
+
+my $ds = '$';
+my $chosen_config_params = "'.chosen-select' : {}";
+my $chosen_config_params_alert = "";
+my $other_jquery_params = "";
+my $reached_question_limit =0;
+my $idea_head_printed = 0;
+
+&Launchh::select_details("WHERE detail_type=2 AND detail_status=1 AND detail_name LIKE 'Idea-%' ORDER BY CAST(detail_note AS DECIMAL(5,1))");
+while(&Launchh::next_detail())
+{
+   &Launchh::select_question($Launchh::detail->{'detail_desc'});
+   
+   my $question_limit = $Launchh::question->{'question_limit'};
+   
+   my $detail_note = $Launchh::detail->{'detail_note'}  ;
+
+   #select user's previous answer, if any
+   &Launchh::select_account_details("WHERE account_id=$Launchh::uid AND detail_id=$Launchh::detail->{'detail_id'} AND account_detail_status=1 ORDER BY account_detail_id desc LIMIT 1");
+   &Launchh::next_account_detail();
+
+   if($Launchh::account->{'account_type'} == 4) #ask mentor questions instead
+   {
+	if($Launchh::question->{'question_note'})
+	{
+	   $Launchh::question->{'question_desc'} = $Launchh::question->{'question_note'};
+	}
+   }
+
+   next if(!$Launchh::question->{'question_desc'});
+   
+   if($Launchh::question->{'question_desc'} eq $last_question_desc){
+        $Launchh::question->{'question_desc'} = "...";
+   }
+   if($Launchh::question->{'question_desc'} ne "..."){
+        $last_question_desc = $Launchh::question->{'question_desc'};
+        $parent_select_detail_id = $Launchh::detail->{'detail_id'}."_parent";
+   }
+
+    my $no_select_div = 0;
+    if( $Launchh::question->{'question_desc'} eq "..." && $Launchh::question->{'question_type'} == 10){
+        $no_select_div = 1 ;
+        $reached_question_limit++;
+    }
+
+
+    if(!$idea_head_printed && $detail_note > 13){
+    }
+    
+=begin
+    Question Type: 11 :: Profile Picture or Videos [BEING USED]
+=cut
+    
+    if( $Launchh::question->{'question_type'}  == 11){
+        
+        my $type = "videos";
+        my $uploadText = "Video";
+        my $allowedTypes  = "vob,avi,mpg,mpeg,ogg,dat,mov,mp4";
+        
+        if($Launchh::detail->{'detail_id'} == 41) {
+            $type = "idea-images";
+            $uploadText = "Idea Photo";
+            $allowedTypes ="jpg,png,gif,jpeg,bmp";
+        }
+        
+        my $detail_value = '';
+        $detail_value = $Launchh::account_detail->{'account_detail_desc'};
+  
+        $str .= << "EOM";
+                        <input type="hidden" name="detail_$Launchh::detail->{'detail_id'}" value="$detail_value"  id="detail_$Launchh::detail->{'detail_id'}">
+                        
+                        <div class="form-row">
+                            <label for="upload-$type" class="form-label">
+                                <!--Profile $uploadText                                 -->
+					$Launchh::question->{'question_name'}
+                                        <br><small>$Launchh::question->{'question_note'}</small>
+                            <span class="form-hint form-hint-alt">
+                            </label>
+
+                            <div class="form-controls">
+                                        
+                                <div id="mulitplefileuploader_$type">Upload</div>
+                               <div id="status_$type"></div>                               
+                            </div><!-- /.form-controls -->                            
+                        </div><!-- /.form-row -->	                       
+                                
+                    
+                    
+                    <script>
+                            $ds(document).ready(function()
+                            {
+                            var settings = {
+                                url: "uploader/upload.php?user_id=$Launchh::account->{'account_id'}&upload_type=$type",
+                                dragDrop:true,
+                                multiple: false,
+                                fileName: "myfile",
+                                allowedTypes:"$allowedTypes",	
+                                returnType:"json",
+                                 onSuccess:function(files,data,xhr)
+                                {
+                                        $ds("#detail_$Launchh::detail->{'detail_id'}").val(data[0]);
+                                        $ds("#status_$type").html("<div>"+data[0]+" Uploaded</div>");      
+                                    //alert($ds("#detail_25").val());
+                                },
+                                showDelete:true,
+                                deleteCallback: function(data,pd)
+                                {
+                                    for(var i=0;i<data.length;i++)
+                                    {
+                                    $ds.post("uploader/delete.php?user_id=$Launchh::account->{'account_id'}",{op:"delete",name:data[i]},
+                                    function(resp, textStatus, jqXHR)
+                                    {
+                                        //Show Message  
+                                        $ds("#status_$type").html("<div>File Deleted</div>");      
+                                        $ds("#detail_$Launchh::detail->{'detail_id'}").val('');
+                                    });
+                                     }      
+                                    pd.statusbar.hide(); //You choice to hide/not.
+                                }
+                            }
+                            var uploadObj = $ds("#mulitplefileuploader_$type").uploadFile(settings);
+                            });                    
+                    </script>                    
+EOM
+        
+        next;
+    }    
+    
+    if(!$no_select_div &&  $Launchh::question->{'question_type'} != 3 &&  $Launchh::question->{'question_type'} != 8){
+       $str .= << "EOM";
+					<div class="form-row cf">
+							<label for="$Launchh::question->{'question_name'}" class="form-label">$Launchh::question->{'question_name'}<br><small>$Launchh::question->{'question_desc'}</small></label>
+						<div class="form-controls">
+							<div class="select">
+EOM
+    }
+
+=begin
+    Question Type: 6 & 7 :: Multi Alpha
+=cut
+
+# 
+
+   if($Launchh::question->{'question_type'} == 6 || $Launchh::question->{'question_type'} == 7 )  #multi-alpha
+   {
+	my $multiple = "";
+	$multiple = "multiple" if($Launchh::question->{'question_type'} == 7 );  #xxx unused
+    
+	$str .= << "EOM";
+                                                            <select data-placeholder="Select $Launchh::detail->{'detail_name'}" style="width:250px;" name="detail_$Launchh::detail->{'detail_id'}" id="detail_$Launchh::detail->{'detail_id'}"  class="chosen-select" tabindex="1">
+                                                                        <!--
+                                                                                <select name="detail_$Launchh::detail->{'detail_id'}" $multiple>-->
+                                                                                <option>Select $Launchh::detail->{'detail_name'}
+                                                                       
+EOM
+
+	&Launchh::select_answers("WHERE question_id=$Launchh::question->{'question_id'} AND answer_status=1 ORDER BY answer_desc");
+	while(&Launchh::next_answer())
+	{
+	   $Launchh::answer->{'answer_desc'} =~ s/^\s*(.+?)\s*$/$1/is;
+	   my $selected = "";
+	   $selected = "selected" if($Launchh::account_detail->{'account_detail_desc'} eq $Launchh::answer->{'answer_desc'});
+
+	   $str .= << "EOM";
+                                                                    <option name="$Launchh::answer->{'answer_id'}" $selected>$Launchh::answer->{'answer_desc'}
+EOM
+	}
+        $str .= << "EOM";
+                                                    </select>
+                                                    <script>
+                                                                $ds(document).ready(function()
+                                                                     {            
+                                                                                $ds("#detail_$Launchh::detail->{'detail_id'}_chosen").width(250);
+                                                                    }       
+                                                                );                                                
+
+                                                    </script>
+                                                    
+EOM
+   }#endif multi-alpha
+   
+   
+=begin
+    Question Type: 10:: Multi Alpha Disabled
+=cut
+
+   elsif($Launchh::question->{'question_type'} == 10)  #multi-alpha disabled
+   {
+	
+    if($question_limit ne 0){
+        if($chosen_config_params ne '') {
+            $chosen_config_params .= ",";
+        }
+        $chosen_config_params .= "'.detail_$Launchh::detail->{'detail_id'}_parent'  : {max_selected_options:$question_limit}";
+        $chosen_config_params_alert .= '$(".detail_'.$Launchh::detail->{"detail_id"}.'_parent").bind("chosen:maxselected", function () { alert("Maximum '.$question_limit.' '. $Launchh::detail->{"detail_name"}.' allowed");} );';
+    }
+    
+    if(!$no_select_div){
+        $str .= << "EOM";
+                                <script>
+                                /*Array Initialization*/
+                                    var arr_detail_$parent_select_detail_id = new Array();
+                                </script>
+EOM
+        }
+        
+    $str .= << "EOM";
+    
+                                    <input type=hidden name="detail_$Launchh::detail->{'detail_id'}" id="detail_$Launchh::detail->{'detail_id'}" value="$Launchh::account_detail->{'account_detail_desc'}">
+                                    
+                                    <script>arr_detail_$parent_select_detail_id.push("detail_$Launchh::detail->{'detail_id'}")</script>
+EOM
+        
+
+    if(!$no_select_div){
+        $str .= << "EOM";
+        
+                                    <select data-placeholder="Select $Launchh::detail->{'detail_name'}" style="width:250px;" name="detail_$Launchh::detail->{'detail_id'}_parent"  multiple class="detail_$Launchh::detail->{'detail_id'}_parent" tabindex="8">
+EOM
+    }
+    
+	&Launchh::select_answers("WHERE question_id=$Launchh::question->{'question_id'} AND answer_status=1 ORDER BY answer_desc");
+	while(&Launchh::next_answer())
+	{
+	   $Launchh::answer->{'answer_desc'} =~ s/^\s*(.+?)\s*$/$1/is;
+	   my $selected = "";
+	   $selected = "selected" if($Launchh::account_detail->{'account_detail_desc'} eq $Launchh::answer->{'answer_desc'});
+       
+       if(!$no_select_div){
+            $str .= << "EOM";
+                                    <option name="$Launchh::answer->{'answer_id'}" $selected>$Launchh::answer->{'answer_desc'}</option>
+EOM
+     }
+     else{
+            if($selected eq 'selected'){
+            $str .=<<"EOM";
+            
+                                    <script>
+                                       var selected=$ds(".detail_$parent_select_detail_id option:selected").map(function(){ return this.value }).get();
+                                        selected.push("$Launchh::answer->{'answer_desc'}");
+                                        $ds('.detail_$parent_select_detail_id').val(selected);            
+                                    </script>
+                                    
+EOM
+            }
+     }
+    
+	}
+    
+    if(!$no_select_div){
+            $str .= << "EOM";
+                </select>
+EOM
+    }
+    
+    if($reached_question_limit + 1 == $question_limit){
+        $str .=<<"EOM";
+        
+                <script>
+
+                    $ds( ".detail_$parent_select_detail_id" )
+                      .change(function () {
+                            var selected=$ds(".detail_$parent_select_detail_id option:selected").map(function(){ return this.value }).get();
+                            var inx = 0;
+                            //alert(selected);
+                            $ds.each( arr_detail_$parent_select_detail_id, function( index, value ){
+                                    $ds('#'+value).val(selected[inx]);
+                                    inx++;
+                            });
+                            
+
+
+                      })
+                      .change();
+                </script>                
+            
+EOM
+    }
+   } #endif multi-alpha selected-disabled
+
+=begin
+    Question Type: 3 :: Multi-Choice ID SORT
+=cut
+
+   elsif( $Launchh::question->{'question_type'} == 3 )  #Multi-Choice ID SORT
+   {
+   $str .= << "EOM";
+   
+                                        <div class="form-row">
+                                            <label for="$Launchh::question->{'question_name'}" class="form-label">
+                                                        $Launchh::question->{'question_name'}<br><small>$Launchh::question->{'question_note'}</small>
+                                            </label>
+                                            <div class="form-controls">
+EOM
+    my $index = 1;   
+	&Launchh::select_answers("WHERE question_id=$Launchh::question->{'question_id'} AND answer_status=1 ORDER BY answer_desc");
+	while(&Launchh::next_answer())
+	{
+	   $Launchh::answer->{'answer_desc'} =~ s/^\s*(.+?)\s*$/$1/is;
+	   my $checked = "";
+       if (index($Launchh::account_detail->{'account_detail_desc'} , $Launchh::answer->{'answer_desc'}) != -1) {
+            $checked = "checked";
+        } 
+       
+            $str .= << "EOM";
+                                                <div class="checkbox custom-checkbox">
+                                                     <input type="checkbox" name="detail_$Launchh::detail->{'detail_id'}_$index" id="detail_$Launchh::detail->{'detail_id'}_$index"  value="$Launchh::answer->{'answer_desc'}" onclick="javascript:detail_$Launchh::detail->{'detail_id'}_controller(this);" $checked/>
+
+                                                    <label for="detail_$Launchh::detail->{'detail_id'}_$index">
+                                                        <span class="custom-checkbox-fake"></span>
+                                                                        $Launchh::answer->{'answer_desc'}
+                                                    </label>
+                                                </div>
+EOM
+    $index++;
+    }
+            my $detail_value = $Launchh::account_detail->{'account_detail_desc'}; # || $Launchh::detail->{'detail_name'};
+
+            $str .= << "EOM";
+            
+                                <INPUT TYPE="HIDDEN" NAME="detail_$Launchh::detail->{'detail_id'}" id="detail_$Launchh::detail->{'detail_id'}" VALUE="$detail_value">
+                                <script>
+                                            function detail_$Launchh::detail->{'detail_id'}_controller(pointer) {
+                                
+                         
+                                                var genre_string = $ds("#detail_$Launchh::detail->{'detail_id'}").val();
+                                                var parent_val = genre_string.split(',');
+                                                
+                                                //alert(parent_val.length);
+                                    
+                                                var pointer_val = pointer.value;
+
+                                                if(pointer.checked){
+                                                      var pushItem = pointer_val;
+                                                      if( $ds.inArray(pushItem, parent_val) == -1){
+                                                            parent_val.push( pointer_val );
+                                                     }
+                                                }
+                                                else{
+                                                            var removeItem = pointer_val;
+                                                            parent_val = jQuery.grep(parent_val, function(value) {
+                                                                    return value != removeItem;
+                                                            });
+                                                }
+                                    
+                                                $ds("#detail_$Launchh::detail->{'detail_id'}").val(parent_val);
+                                                //alert(parent_val);
+                                                //alert( $ds("#detail_$Launchh::detail->{'detail_id'}").val());
+                                            }
+                        </script>
+                        
+EOM
+    
+   }
+
+=begin
+    Question Type: 8 :: Radio Select
+=cut
+
+   elsif( $Launchh::question->{'question_type'} == 8 )  #Radio Select
+   {
+        $str .= << "EOM";
+        
+                        <div class="form-row">
+						<label for="$Launchh::question->{'question_name'}" class="form-label">
+                                    $Launchh::question->{'question_desc'}
+                                </label>
+                                   <div class="form-controls custom-radio-alt">
+EOM
+
+	   my $checked_yes = "";
+	   my $checked_no = "";
+       
+       if ($Launchh::account_detail->{'account_detail_desc'} eq "no") {
+            $checked_yes = "";
+            $checked_no = "checked='checked'";
+       }
+       
+            $str .= << "EOM";
+                                                  <div class="radio custom-radio">
+                                                            <input type="radio" name="detail_$Launchh::detail->{'detail_id'}_radio" id="detail_$Launchh::detail->{'detail_id'}_yes" onclick="javascript:detail_$Launchh::detail->{'detail_id'}_controller(this);" value="yes" >
+
+                                                            <label for="detail_$Launchh::detail->{'detail_id'}_yes">
+                                                                    <span class="custom-radio-fake"></span>
+                                                                            Yes
+                                                            </label>            
+										</div><!-- /.radio custom-radio -->
+                                                
+                                                
+                                                <div class="radio custom-radio custom-input-checked" >
+											<input type="radio" name="detail_$Launchh::detail->{'detail_id'}_radio" id="detail_$Launchh::detail->{'detail_id'}_no" onclick="javascript:detail_$Launchh::detail->{'detail_id'}_controller(this);" value="no" >
+
+											<label for="detail_$Launchh::detail->{'detail_id'}_no">
+												<span class="custom-radio-fake"></span>
+												No
+											</label>
+										</div><!-- /.radio custom-radio -->
+
+EOM
+
+            my $detail_value = $Launchh::account_detail->{'account_detail_desc'}; # || $Launchh::detail->{'detail_name'};
+            
+            $other_jquery_params = $ds.'("#detail_'.$Launchh::detail->{"detail_id"}.'_'.$detail_value.'").prop("checked", true);';
+            $other_jquery_params .= $ds.'("#detail_'.$Launchh::detail->{"detail_id"}.'_'.$detail_value.'").parent().addClass("custom-input-checked");';
+
+            $str .= << "EOM";
+            
+                                                <INPUT TYPE="HIDDEN" NAME="detail_$Launchh::detail->{'detail_id'}" id="detail_$Launchh::detail->{'detail_id'}" VALUE="$detail_value">
+                                                <script>
+                                         
+                                                                $ds(document).ready(function()
+                                                                     {            $ds("#detail_$Launchh::detail->{'detail_id'}_no").prop("checked", true);
+                                                                                 $ds("#detail_$Launchh::detail->{'detail_id'}_no").parent().addClass("custom-input-checked");
+                                                                    }       
+                                                                );                                                
+                                                                
+                                                                function detail_$Launchh::detail->{'detail_id'}_controller(pointer) {
+                                                                    $ds("#detail_$Launchh::detail->{'detail_id'}").val(pointer.value);
+                                                                } 
+                                                </script>
+                            
+EOM
+  }
+
+
+   else
+   {
+        my $detail_value = $Launchh::account_detail->{'account_detail_desc'} || $Launchh::detail->{'detail_name'};
+        my $placeholder = $Launchh::question->{'question_note'};
+
+=begin
+    Question Type: 1 :: Text Area
+=cut
+        
+        if($Launchh::question->{'question_type'} == 1){
+            $str .= << "EOM";
+                                                            <textarea cols="30" rows="10" name="detail_$Launchh::detail->{'detail_id'}"  class="textarea" placeholder="$placeholder">$Launchh::account_detail->{'account_detail_desc'}</textarea>
+EOM
+        }
+        else{
+	    #$detail_value = $Launchh::account_detail->{'account_detail_desc'} || $Launchh::detail->{'detail_desc'};
+            $detail_value = '' if($detail_value eq 'Idea-Video');
+            $str .= << "EOM";
+                                            <input type="text" class="field" name="detail_$Launchh::detail->{'detail_id'}" value="$detail_value" placeholder="$placeholder"/>
+EOM
+             }
+   }#end else
+   
+    if ($Launchh::question->{'question_type'} == 3){
+   $str .= << "EOM";
+						</div><!-- /.form-controls -->
+					</div><!-- /.form-row -->
+EOM
+    }
+   elsif(!$no_select_div  ){
+   $str .= << "EOM";
+							</div><!-- /.select -->
+						</div><!-- /.form-controls -->
+					</div><!-- /.form-row -->
+                    
+EOM
+    }
+}#end while next_detail
+
+=begin 
+    Use of Funds
+=cut
+
+
+$str .= << "EOM";
+   
+                                        <div class="form-row">
+                                            <label for="detail_use_of_funds" class="form-label">
+                                                        Uses of Funds <br><small>(What resources do you need to test your idea? Choose from our list of common tools and/or create your own campaigns, e.g. freelance developer )
+                                                        <br><i>Tip: People are more likely to fund you when they know exactly how you plan to use their money. Be realistic so you can be accountable to your donors, who believe in you and want you to succeed.</i></small>
+                                            </label>
+                                            <div class="form-controls">
+EOM
+
+my $current_value = " ";
+my $index = 1; 
+
+
+&Launchh::select_elements("WHERE element_status=1 and (project_id = '0' or project_id = '$project_id')");
+while(&Launchh::next_element())
+{
+    my $checked = "";    
+    my $toolTipHead = "";
+    my $fund_raised_for_elements = 0;        
+    
+    &Launchh::select_element_details("WHERE element_detail.element_id = $Launchh::element->{'element_id'} AND account_id = $Launchh::account->{'account_id'}" );
+    &Launchh::next_element_detail();
+    #print STDERR "xxx came for checkbox [$Launchh::element_detail->{'element_id'}] [$Launchh::element->{'element_id'}]xxxx";
+    if ($Launchh::element_detail->{'element_id'} eq $Launchh::element->{'element_id'}) {
+        $checked = "checked";
+        $current_value = $current_value .",".$Launchh::element->{'element_name'}.":".$Launchh::element->{'element_amount'};
+        $fund_raised_for_elements = ceil(&Launchh::total_funded("WHERE funding_details.account_id = $Launchh::account->{'account_id'} AND funding_details.element_id = $Launchh::element_detail->{'element_id'}" ));
+        $fund_raised_for_elements = 1 if( $Launchh::element_detail->{'element_detail_status'} != 1);
+    } 
+    
+    
+    
+    ## Will need to check whether the campaign is approved by Admin
+    if($checked ne ""){
+        $toolTipHead = "You can\'t de-select an active campaign" ;
+        $checked .= " disabled" if($fund_raised_for_elements > 0);
+    }
+    
+
+
+    $str .= << "EOM";
+                                                <div class="checkbox custom-checkbox" title="$toolTipHead">
+                                                     <input type="checkbox" name="element_fund_use_$index" id="element_fund_use_$index"  value="$Launchh::element->{'element_name'}" onclick="javascript:element_fund_use_controller(this, $Launchh::element->{'element_amount'});" $checked/>
+
+                                                    <label for="element_fund_use_$index">
+                                                        <span class="custom-checkbox-fake"></span>
+                                                                        $Launchh::element->{'element_name'} (\$$Launchh::element->{'element_amount'})
+                                                    </label>
+                                                </div>
+EOM
+$index++;    
+}
+
+
+    $str .= custom_campaign_str();
+    
+    $str .= << "EOM";
+
+						</div><!-- /.form-controls -->
+					</div><!-- /.form-row -->
+                                <INPUT TYPE="HIDDEN" NAME="element_fund_use"  id="element_fund_use" VALUE="$current_value">
+                                <script>
+                                            function element_fund_use_controller(pointer, idval) {
+                                
+                         
+                                                var genre_string = $ds("#element_fund_use").val();
+                                                var parent_val = genre_string.split(',');
+                                                
+                                                var pointer_val = pointer.value+":"+idval;
+
+                                                if(pointer.checked){
+                                                      var pushItem = pointer_val;
+                                                      if( $ds.inArray(pushItem, parent_val) == -1){
+                                                            parent_val.push( pointer_val );
+                                                     }
+                                                }
+                                                else{
+                                                            var removeItem = pointer_val;
+                                                            parent_val = jQuery.grep(parent_val, function(value) {
+                                                                    return value != removeItem;
+                                                            });
+                                                }
+                                    
+                                                $ds("#element_fund_use").val(parent_val);
+                                                //alert($ds("#element_fund_use").val());
+                                                //alert (idval);
+                                            }
+                        </script>
+EOM
+#=cut                    
+
+$str .= << "EOM";
+
+												</div><!-- /.form-body -->
+
+					<div class="form-actions">
+                                   <input type=hidden name='submitc' id='submitc' value="continue">
+                                   <input type="submit" value="Back" class="btn btn-medium" onclick="javascript:\$('#submitc').val('back')"/>
+                                   <input type="submit" value="Save"  class="btn btn-medium" onclick="javascript:alert('Your account is being saved!');\$('#submitc').val('save')"/>
+                                    <input type="submit" value="Continue" class="btn btn-medium" />
+					</div><!-- /.form-actions -->					
+                                    </form>
+                                        </div><!-- /.form form-create-profile -->
+                                </div><!-- /.section-body -->
+                        </div><!-- /.shell -->
+                </div><!-- /.section section-create-profile -->
+
+EOM
+
+$str.= chosen_string($chosen_config_params, $chosen_config_params_alert);
+
+
+return $str;
+ 
+}  #end sub html_stage6
+
+sub html_stage7 #gather idea related information here
+{
+
+my $chosen_config_params = "'.chosen-select' : {}";
+my $chosen_config_params_alert = "";
+
+
+=begin
+&stripe_user[email]=zulker@t1v1.com
+&stripe_user[url]=http://launchh.com/profile/zulker
+&stripe_user[country]=CA
+&stripe_user[first_name]=zulker
+&stripe_user[last_name]=ahmed
+&stripe_user[product_description]=adasduasoduasoduasudasudasdkjasljdjasdjasjdasjdjasdjasdjsjdaskjd
+=cut
+
+my $page_url = 'http';
+if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off") {
+    $page_url .= "s";
+}
+$page_url .= "://"; 
+$page_url .= $ENV{SERVER_NAME};
+
+
+#$Launchh::account->{'account_name_first'}  = decode('UTF-8', $Launchh::account->{'account_name_first'}, Encode::FB_CROAK);
+$Launchh::account->{'account_name_first'}  = encode('UTF-8', $Launchh::account->{'account_name_first'}, Encode::FB_CROAK);
+$Launchh::account->{'account_name_last'}  = encode('UTF-8', $Launchh::account->{'account_name_last'}, Encode::FB_CROAK);
+
+## https://stripe.com/docs/connect/reference#get-authorize-request
+my $stripe_details = '';
+$stripe_details .= "&stripe_user[email]=".$Launchh::account->{'account_email'};
+$stripe_details .= "&stripe_user[url]="."$page_url/profile/".$Launchh::account->{'account_username'};
+$stripe_details .= "&stripe_user[country]=US";
+$stripe_details .= "&stripe_user[first_name]=".$Launchh::account->{'account_name_first'};
+$stripe_details .= "&stripe_user[last_name]=".$Launchh::account->{'account_name_last'};
+$stripe_details .= "&stripe_user[physical_product]=false";
+$stripe_details .= "&stripe_user[product_description]=Crowdfunding through LaunchLeader";
+$stripe_details .= "&always_prompt=true";
+
+#my $stripe_client_id = "ca_55c1eriT4KbNKb2K15gYMFOLCT6wH5Kp";
+my $stripe_client_id = $Launchh::STRIPE_CLIENT_ID;
+
+&Launchh::select_stripe_connect("WHERE account_id= '$Launchh::uid'");
+&Launchh::next_stripe_connect();   
+my $stripe_connect_id = $Launchh::stripe_connect_detail->{'stripe_connect_id'};
+
+my $alreadySetup = 0;
+my $stripeText = "Connect with Stripe";
+if($stripe_connect_id != 0){
+    $alreadySetup = 1;
+    $stripeText = "Already Connected to Stripe";
+}
+my $stripe_setup_str = "You must connect to a Stripe account for your profile to accept payment.";
+$stripe_setup_str = "Your Stripe account has been successfully connected. Now you can begin fundraising!" if($alreadySetup);
+
+my $str = << "EOM";
+        <div class="section section-create-profile">
+                        <div class="shell">
+                        
+                                <div class="section-head">
+                                    <h2>Set Up Your Stripe Account To Receive Funding</h2>
+                                    <div id="setup_confirmation" align=center>$stripe_setup_str</div>
+                                </div><!-- /.section-head -->
+                                
+                                <div class="section-body">
+                                        <div class="section-head-actions">
+                                                <font color="red">$Launchh::ERROR</font>
+                                        </div><!-- /.section-head-actions -->
+
+                                        <div class="form form-create-profile">
+                                            <form action="account" method="post" onsubmit="return true;">
+                                                    <input type="hidden" name="account_id" value="$Launchh::uid">
+                                                    <input type="hidden" name="stage" value="7">
+                                                    <input type="hidden" name="mode" value="$mode">
+                                                     $Launchh::HIDDEN
+                                                     <br> <br> <br> <br> 
+                                                    <div class="form-body clearfix" align=center>
+                                                            <p>
+                                                                <a href="#" onClick="javascript:popupwindow('https://connect.stripe.com/oauth/authorize?response_type=code&scope=read_write&stripe_landing=register&client_id=$stripe_client_id$stripe_details','Connect Your Stripe Account','650','350')" class="btn btn-medium">$stripeText</a> 
+                                                        </p>                                                        
+										</div><!-- /.form-body -->
+
+                                            <div class="form-actions">
+                                                       <input type=hidden name='submitc' id='submitc' value="continue">
+                                                       <input type=hidden name='stripe_data' id='stripe_data' value="">
+                                                       <input type=hidden name='setup' id='setup' value="$alreadySetup">
+                                                        <input type="submit" value="Back" class="btn btn-medium" onclick="javascript:\$('#submitc').val('back')"/>  
+                                                       <input type="submit" value="Save"  class="btn btn-medium" onclick="return launchMe(0);"/>
+                                                        <input type="submit" value="Launch" id="launch_button" onclick="return launchMe(1);"class="btn btn-medium"  />
+                                        </div><!-- /.form-actions -->					
+                                    </form>
+                                        </div><!-- /.form form-create-profile -->
+                                </div><!-- /.section-body -->
+                        </div><!-- /.shell -->
+                </div><!-- /.section section-create-profile -->
+                 <script>       
+                            function popupwindow(url, title, w, h) {
+                                  url = url.replace("#","%23") 
+                                  var left = (screen.width/2)-(w/2);
+                                  var top = (screen.height/2)-(h/2);
+                                  return window.open(url, title, 'toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=yes, resizable=no, copyhistory=no, width='+w+', height='+h+', top='+top+', left='+left);
+                            }   
+                            
+                            function alreadySetup(data, val){
+                                if(val == 0){
+                                   \$("#setup_confirmation").html("You have just denied setting up Stripe Account!");
+                                    return false;
+                                }
+                                else{
+                                   \$("#setup_confirmation").html("Your Stripe account has been successfully connected. Now click Launch button below to start fundraising!");
+                                   \$("#stripe_data").val(data);
+                                    \$("#launch_button").disabled = false;
+                                    \$("#setup").val(1);
+                                }
+                            }
+                            
+                            function launchMe(lm){                            
+                                if(\$("#setup").val() == 0){
+                                    if(lm == 0) {
+                                        alert('You must connect to Stripe before you can Save!');
+                                    }
+                                    else {
+                                        alert("Please note You haven\'t connected to Stripe.\\nPlease Update it later!");
+                                        return true;
+                                    }
+                                    return false;
+                                }
+                                
+                                if(lm == 0) {
+                                    alert('Your account is being saved!');
+                                    \$('#submitc').val('save');
+                                }
+                                return true;
+                            }
+            </script>            
+EOM
+
+$str.= chosen_string($chosen_config_params, $chosen_config_params_alert);
+
+return $str;
+}  #end sub html_stage7
+
+sub custom_campaign_str
+{
+
+
+    my $str =<<EOM;
+			<div style="padding:10px 5px;margin:4px 0 20px 0;border:dashed 1px #999;border-radius:3px;-moz-border-radius:3px;-webkit-border-radius:3px">
+			<h4>Add Custom Campaign </h4>
+			<div id="custom-campaign">
+					<input type="button" id="btAdd" value="Add Campaign" class="btn" />
+					<input type="button" id="btRemove" value="Remove" class="btn" />
+			</div>
+            <span id="error_box"></span>
+			<div id="showvalues"></div>
+			<script>
+			\$(document).ready(function() {
+				var iCnt = 0; 
+				var reached = $custom_campaign_limit; 
+
+				var container = \$(document.createElement('div')).css({padding: '2px', margin: '10px', width: '220px',overflow: 'hidden', border: '1px dashed',borderTopColor: '#999', borderBottomColor: '#999',borderLeftColor: '#999', borderRightColor: '#999', font: '13px verdana'});
+				\$('#btAdd').click(function() { if (iCnt < reached) {iCnt = iCnt + 1; 
+				\$(container).append('<input type=text class="input"  name="campaign' + iCnt + '" id="campaign' + iCnt + '" value="' +  '" placeholder="Add Campaign Name Here" size=20  onkeyup="javascript:campaign_checker('+iCnt+', 1);"/><input type=text class="input" name="campaignval' + iCnt + '" id="campaignval' + iCnt + '" value="1' +  '" placeholder="Fund in \$" size=5 min="1"  onkeyup="javascript:campaign_checker('+iCnt+', 2);"/><span id=dollar'+ iCnt +'><b>\$</b><br></span>'); 
+				if (iCnt == 1) { var divSubmit = \$(document.createElement('div')); \$(divSubmit).append(''); }
+				\$('#custom-campaign').after(container, divSubmit);} 
+					else {
+						alert("Maximum "+reached+" custom campaigns can be created at a time"); 
+						\$('#btAdd').attr('class', 'bt-disable'); 
+						\$('#btAdd').attr('disabled', 'disabled');
+					     }
+					});
+					\$('#btRemove').click(function() {if (iCnt != 0) { \$('#campaign' + iCnt).remove(); \$('#campaignval' + iCnt).remove(); \$('#dollar' + iCnt).remove(); \$('#btAdd').removeAttr('disabled'); \$('#btAdd').attr('class', 'btn'); iCnt = iCnt - 1; } if (iCnt == 0) { \$(container).empty(); \$(container).remove(); \$('#btSubmit').remove(); \$('#btAdd').removeAttr('disabled'); \$('#btAdd').attr('class', 'btn') }});
+					});
+				var divValue, values = ''; 
+				
+				function GetTextValue() {\$(divValue).empty(); 
+				\$(divValue).remove(); 
+				values = ''; 
+				\$('.input').each(function() { 
+					divValue = \$(document.createElement('div')).css({padding: '5px', width: '200px'}); values += this.value});
+				\$(divValue).append('<p><b>Your selected values</b></p>' + values);
+				\$('#showvalues').append(divValue);}
+                
+                function campaign_checker(ccNumber, flag){
+                    var error_str = '';
+                    if(\$("#campaign"+ccNumber).val().length > 25) {
+                        error_str += "- The Custom campaign name must be less than 25 Characters.";
+                    }
+                    if(\$("#campaignval"+ccNumber).val() * 1 > 100000) {
+                        error_str += "<br>- The Custom campaign goal must be less than US\$100,000.";
+                    }                   
+                    if( (\$("#campaignval"+ccNumber).val() * 1 <= 0 && flag == 2 && \$("#campaignval"+ccNumber).val() != '' ) ) {
+                        error_str += "<br>- The Custom campaign goal must be greater than 0.";
+                    }
+                    
+                    if(error_str != ""){
+                        \$("#error_box").html('<div class=\"error\">'+error_str+'</div>');
+                        \$("#error_happened").val(1);
+                    }
+                    
+                    else{
+                        \$("#error_box").html("");
+                        \$("#error_happened").val(0);
+                    }
+                }
+              
+              function account_submit(){         
+                if(\$('#error_happened').val() == 1){
+                        return false;
+                 }
+                else {
+                    return true;
+                }
+            }
+                
+			</script>
+	</div>
+EOM
+
+return $str;
+
+}
+sub chosen_string
+{
+    my $chosen_config_params = shift;
+    my $chosen_config_params_alert = shift;
+
+    my $str = << "EOM";
+  <script src="/js/chosen.jquery.js" type="text/javascript"></script>
+  <!-- <script src="/docsupport/prism.js" type="text/javascript" charset="utf-8"></script> -->
+  <script type="text/javascript">
+    
+    var config = {
+            $chosen_config_params                
+    }
+    for (var selector in config) {
+        \$(selector).chosen(config[selector]);
+    }
+    
+    $chosen_config_params_alert
+</script>
+EOM
+
+return $str;
+
+}						
+
+sub print_header
+{
+   print  $session->header();
+   #print $Launchh::_query->header();
+   my $header = &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+#$user_header_str = " of ".$Launchh::account->{'account_name_first'} if($Launchh::account->{'account_name_first'} ne '');
+   my $rand = rand(10000);
+   
+   $header =~ s/XXXTITLEXXX/USER PROFILE/is;
+   $header =~ s/DASHBOARDSTR/<li><a href="dashboard">My Dashboard<\/a><\/li>/is;
+   $header =~ s/SIGNUPSTR//is;
+   
+   if($Launchh::uid ne ''){
+        $header =~ s/<li class="separator">\s*<a href=".*?login">Login<\/a>/<li class="separator"><a href="..\/logout?pmode=$pmode">Logout<\/a>/is  if($pmode ne '');        
+        $header =~ s/<li class="separator">\s*<a href=".*?login">Login<\/a>/<li class="separator"><a href="..\/logout?$rand">Logout<\/a>/is ;        
+   }
+   
+    if( $pmode ne '' ){
+        $header =~ s/faq">/faq\?pmode=$pmode">/is;   
+        $header =~ s/discover">/discover\?pmode=$pmode">/is;   
+        $header =~ s/privacy"/privacy\?pmode=$pmode"/is;   
+        $header =~ s/dashboard"/dashboard\?pmode=$pmode"/is;   
+        $header =~ s/terms"/terms\?pmode=$pmode"/is;   
+	}
+    
+
+   print $header;
+}
+
+sub print_footer
+{
+    
+   my $footer = &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+
+    if( $pmode ne '' ){
+        $footer =~ s/privacy"/privacy\?pmode=$pmode"/is;   
+        $footer =~ s/terms"/terms\?pmode=$pmode"/is;   
+    }
+    
+    print $footer;
+}
+
+
+sub send_email_with_idea{
+	## Sending Email Block
+	my $idea_available = shift;
+	my $to = $Launchh::account->{'account_email'};  
+    $to =~ s/\\\'//gis;
+	$to =~ s/\'//gis;
+
+	my $subject = "Welcome to LaunchLeader";
+	my $body = "";
+	my $from = $Launchh::FROM_EMAIL_ADDRESS;
+	my $cc = '';	
+	my $admin_email = $Launchh::SIVI_ADMIN_EMAIL;	
+    my $bcc = $admin_email;
+    
+    my $page_url = 'http';
+    if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off") {
+        $page_url .= "s";
+    }
+    $page_url .= "://"; 
+
+    $page_url .= $ENV{SERVER_NAME};
+    my $profile_url = $page_url . "/profile/$Launchh::u";
+    my $faq_url = $page_url . "/faq";
+
+    if($pmode ne '' && $pmode ne 'launchleader'){
+        $faq_url .= "?pmode=$pmode";
+        $profile_url .= "?pmode=$pmode";
+        $page_url .= "/partner/$pmode";
+    }
+    
+    my $name = $Launchh::account->{'account_name_first'};
+    $name =~ s/\\\'//gis;
+	$name =~ s/'//gis;
+    
+    my $message = "";
+    my $header  ="Content-Type: text/html; charset=ISO-8859-1\n\n
+    <html><body>
+    ";
+     
+    if(!$idea_available){
+    $message = "$header
+Hi $name,<br><br>
+Thanks for creating a profile on <a href=\"$page_url\">LaunchLeader</a>.<br><br>
+Now you can discover other entrepreneurs to join a team or add an idea to your profile to get feedback and<br>
+raise money for your startup. Refer to our <a href=\"$faq_url\">FAQ</a> page for more tips<br><br>
+Best Wishes,<br><br>
+The LaunchLeader Team<br>
+</body></html>
+";
+    }
+    elsif($idea_available == 1){
+    $message = "$header
+Hi $name,<br><br>
+Thanks for creating a profile on <a href=\"$page_url\">LaunchLeader</a>.<br><br>
+Now you can start sharing <a href=\"$profile_url\">your profile page</a> to raise money for your startup.<br><br>
+Remember that each campaign (specific item to get funded) lasts <b>30 days from the time you get your 
+first donation</b> and you must hit the goal for the campaign in order to receive any money. Refer to our 
+<a href=\"$faq_url\">FAQ</a> page for more tips<br><br>
+Best Wishes,<br>
+The LaunchLeader Team<br><br>
+</body></html>
+";
+    }
+    elsif($idea_available == 2){
+    $message = "$header
+Hi $name,<br><br>
+Thanks for creating a profile on <a href=\"$page_url\">LaunchLeader</a>. You can always edit your profile<br><br>
+by logging in and going to My Dashboard.<br><br>
+Remember to log back in and set up a Stripe account so the funding you receive<br>
+can be deposited into your bank account. We are unable to transfer funds until<br>
+you've connected to Stripe but you can still raise money in the meanwhile.<br>
+<br>Refer to our  <a href=\"$faq_url\">FAQ</a> page for more tips<br><br>
+Best Wishes,<br><br>
+The LaunchLeader Team<br>
+</body></html>
+";
+    }
+    $body = $message;    
+	&Launchh::sendmail($to, $subject, $body, $from, $cc, $bcc);
+    print STDERR "Email sent to :$to for IDEA[$idea_available]\n";
+}
+
+sub send_verification_email{
+	## Sending Email Block
+    my $verify_token = shift;
+	my $to = $Launchh::account->{'account_email'};  
+	$to =~ s/\'//gis;
+
+	my $subject = "Activate your LaunchLeader account";
+	my $body = "";
+	my $from = $Launchh::FROM_EMAIL_ADDRESS;
+	my $cc = '';	
+	my $admin_email = $Launchh::SIVI_ADMIN_EMAIL;	
+    my $bcc = $admin_email;
+    
+    
+    my $page_url = 'http';
+    if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off") {
+        $page_url .= "s";
+    }
+    $page_url .= "://"; 
+
+    $page_url .= $ENV{SERVER_NAME};
+    
+    if($pmode ne '' && $pmode ne 'launchleader'){
+        #$page_url .= "/partner/$pmode";
+    }
+    
+    my $verified_url  = $page_url ."/cred/account_verify.php?key=$verify_token&pmode=$pmode";
+    
+    my $name = $Launchh::account->{'account_name_first'} . " ". $Launchh::account->{'account_name_last'};
+    $name =~ s/'//gis;
+    
+    my $message = "";
+    my $header  ="Content-Type: text/html; charset=ISO-8859-1\n\n
+    <html><body>
+    ";
+    
+    $message = "$header
+Dear $name,<br><br>
+Thanks for creating a LaunchLeader account.To get activated please click the following link:<br>
+<a href=\"$verified_url\">$verified_url</a><br><br>
+If clicking the link doesn't work you can copy the link into your browser window or type it there directly.
+<br><br>
+
+Best Regards<br><br>
+The LaunchLeader Team<br><br>
+
+Facebook: https://www.facebook.com/groups/launchleader<br>
+Twitter: https://twitter.com/sivicorp
+<br>
+</body></html>
+";
+
+    $body = $message;    
+	&Launchh::sendmail($to, $subject, $body, $from, $cc, $bcc);
+    print STDERR "Email sent to :$to for verification\n";
+}
+
+
+sub send_campaign_confirmation{
+	
+	my $project_name = shift;
+	my $campaign_name = shift;
+    
+	my $to = $Launchh::account->{'account_email'};  
+    $to =~ s/\'//gis;    
+    
+	my $subject = "You Just Created Your $campaign_name Campaign on LaunchLeader";
+	my $from = $Launchh::FROM_EMAIL_ADDRESS;
+    my $body = "";
+	my $cc = '';	    
+    my $admin_email = $Launchh::SIVI_ADMIN_EMAIL;	  
+    
+    my $bcc = $admin_email;    
+    
+    my $page_url = 'http';
+    if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off") {
+        $page_url .= "s";
+    }
+    $page_url .= "://".$ENV{SERVER_NAME};
+    
+    my $profile_url = $page_url . "/profile/$Launchh::u";
+    my $faq_url = $page_url . "/faq";
+
+    if($pmode ne '' && $pmode ne 'launchleader'){
+        $faq_url .= "?pmode=$pmode";
+        $profile_url .= "?pmode=$pmode";
+        $page_url .= "/partner/$pmode";
+    }
+    
+    my $name = $Launchh::account->{'account_name_first'};
+    $name =~ s/'//gis;
+        
+    my $message = "";
+    my $header  ="Content-Type: text/html; charset=ISO-8859-1\n\n
+    <html><body>
+    ";
+    
+    $message = "$header
+Hi $name,<br><br>
+Woo hoo! <br><br>
+You just created a new campaign, $campaign_name for <a href=\"$profile_url\">$project_name</a> on LaunchLeader!<br><br>
+Now you can start promoting by sharing your <a href=\"$profile_url\">profile page</a> by email and social media. <br><br>
+Remember that each campaign (specific item to get funded) lasts <b>30 days from the time you get your
+first donation</b> and you must hit the goal for the campaign in order to receive any money.  Refer to our
+<a href=\"$faq_url\">FAQ</a> page for more tips<br><br>
+Best Wishes,<br><br>
+The LaunchLeader Team<br>
+</body></html>
+";
+
+    $body = $message;    
+	&Launchh::sendmail($to, $subject, $body, $from, $cc, $bcc);
+    print STDERR "Email sent to entrepreneur:$to for New Campaign\n";
+    
+    $subject = "Campaign Created on LaunchLeader";
+    $message = "$header
+Heads up.<br><br>
+$name just created a new campaign, $campaign_name for <a href=\"$profile_url\">$project_name</a> on LaunchLeader!<br><br>
+- The LaunchLeader Team<br>
+</body></html>
+";
+    $body = $message;    
+    &Launchh::sendmail($admin_email, $subject, $body, $from, $cc, '');
+    print STDERR "Email sent to admin:$admin_email for New Campaign\n";
+}
+
+sub write_output{
+    my $to_output = shift;
+    my $filename = 'output.txt';
+    open(my $fh, '>', $filename) or die "Could not open file '$filename' $!";
+    print $fh $to_output."\n";
+    close $fh;
+}
+
+sub trim{
+    my $string = shift;
+    $string =~ s/^\s+//;
+    $string =~ s/\s+$//;
+    return $string;
+}

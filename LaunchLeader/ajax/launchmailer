@@ -1,0 +1,210 @@
+#!/usr/bin/perl
+
+use lib '../cgi-bin';
+use lib '../util';
+use Launchh;
+use strict;
+use Digest::MD5 qw(md5_hex);
+
+#$Launchh::HFILE = "empty-ll2.html";
+
+my $username = $Launchh::_query->param('username');
+my $firstname = $Launchh::_query->param('firstname');
+my $sendername = $Launchh::_query->param('sendername');
+my $from_email = $Launchh::_query->param('from_email');
+my $funder_email = $Launchh::_query->param('funder_email');
+my $message = $Launchh::_query->param('message');
+my $torefer = $Launchh::_query->param('torefer') || '';
+my $reported = $Launchh::_query->param('reported') || '';
+my $convreply = $Launchh::_query->param('convreply') || '0';
+
+$firstname =~ s/'//;
+
+$Launchh::u = trim($username);
+
+my $admin_email =  $Launchh::SIVI_ADMIN_EMAIL;	
+#$admin_email = "rkmohajan\@gmail.com";
+
+&Launchh::select_accounts("WHERE account_username='$username'");
+&Launchh::next_account();
+my $account_id = $Launchh::account->{'account_id'};
+
+print STDERR "Found from_email [$from_email]\n";
+print STDERR "Found message [$message] \n";
+print STDERR "Found username [$username] \n";
+#exit;
+print $Launchh::_query->header();
+#print STDERR "Found username $Launchh::_query->param('username')\n";
+
+ if($reported ne ''){
+    print send_email($reported,2);
+}
+elsif($torefer ne ''){
+    print send_email($torefer,1);
+}
+else{
+	print send_email('',0);
+}
+&Launchh::clean_exit();
+
+#my $toname = $Launchh::account->{'account_name_first'}. " ". $Launchh::account->{'account_name_last'}; 
+
+sub send_email{
+	## Sending Email Block
+    my $element = shift || '';
+    my $mail_flag = shift || 0;
+    print STDERR "Found email address".$Launchh::account->{'account_email'}." mail_flag [$mail_flag]\n";
+
+	my $to = $Launchh::account->{'account_email'};  
+	
+	my $subject = "You Got A New Message On LaunchLeader";
+	my $body = $message;
+	#my $from = "info\@launchleader.com";
+	my $from = $Launchh::FROM_EMAIL_ADDRESS;
+	my $cc = '';	
+	my $bcc = $Launchh::SIVI_ADMIN_EMAIL;	
+    my $replyto = '';
+    
+    my $entrepreneur_name = $Launchh::account->{'account_name_first'}. " ". $Launchh::account->{'account_name_last'}; 
+
+
+	if($mail_flag == 1){
+        #&Launchh::select_accounts("WHERE account_username='$username'");
+        #&Launchh::next_account();
+        $replyto= $to;
+        my $page_url = 'http';
+        if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off") {
+            $page_url .= "s";
+        }
+        $page_url .= "://"; 
+        $page_url .= $ENV{SERVER_NAME};
+            
+        $to = $element;
+        $subject = "Introduction To Entrepreneur On LaunchLeader";
+        # 2015-04-20 Fixes
+        #$body = "Hi,\n\nI thought you’d enjoy checking out $firstname's profile page on LaunchLeader: $page_url/profile?u=$username\n\nThanks\n\n$sendername";
+        $body = "Hi,\n\nI thought you’d enjoy checking out this profile page on LaunchLeader: $page_url/profile?u=$username\n\nThanks,\n\n$sendername";
+        #$from = "info\@launchleader.com";
+    }    
+
+    elsif($mail_flag == 2){
+	    my $page_url = 'http';
+	    if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off") {
+            $page_url .= "s";
+	    }
+	    $page_url .= "://"; 
+        $page_url .= $ENV{SERVER_NAME};
+        
+        $to = $admin_email;
+        $reported = $element;
+        $subject = "LaunchLeader Account Reported";
+        $body = "The following idea of the entrepreneur has been reported by users\n\n $page_url/idea?u=$username\n\n Reported as [$reported]";
+        #$from = "info\@launchleader.com";
+    }    
+    else{
+        
+        #$body = "You Got A New Message from ".$from_email."\n\n".$body;
+        #$from = $from_email;
+        #$bcc .= ",".$Launchh::FROM_EMAIL_ADDRESS;
+        $replyto = $from_email;
+        if($from_email eq '' or $message eq '') {
+            return "failed";
+        }
+        if($from_email !~ /^\S+@\S+\.\S+$/){
+            return "failed";
+        }
+        my $ctype = 2;
+        my $conversation_email = $from_email; 
+        $message =~ s/\n/<br>/gis;
+
+        if($funder_email ne ''){
+            $to = $funder_email;
+            $subject =  "You Got A New Message From LaunchLeader";
+            $ctype = 1;
+            $conversation_email  = $funder_email; 
+            #my $reply_link = "http://launchleader.com";            
+            my $reply_link = get_reply_link();
+            my $header  ="Content-Type: text/html; charset=ISO-8859-1\n\n
+        <html><body>";
+            
+            $body = "$header
+            You have just received an email from $entrepreneur_name
+            <br><br>
+            <br><hr>
+            $message
+            <br><hr>
+            <br><br>
+            <table border='0' cellpadding='0' cellspacing='0' style='background-color:#3398da; border:1px solid #3398ff; border-radius:5px;'>
+                <tr>
+                    <td align='center' valign='middle' style='color:#FFFFFF; font-family:Helvetica, Arial, sans-serif; font-size:16px; font-weight:bold; letter-spacing:-.5px; 
+                    line-height:150%; padding-top:15px; padding-right:30px; padding-bottom:15px; padding-left:30px;'>
+                        <a href='$reply_link' target='_blank' style='color:#FFFFFF; text-decoration:none;'>REPLY NOW</a>
+                    </td>
+                </tr>
+            </table><br><br>
+                   
+            </body></html>";        
+        }
+        
+        ##Insert Conversation Details
+        $Launchh::conversation->{'account_id'} = $account_id;
+        $Launchh::conversation->{'conversation_details_text'} = $message;
+        $Launchh::conversation->{'conversation_type'} = $ctype; 
+        $Launchh::conversation->{'conversation_email'} = $conversation_email; 
+        &Launchh::insert_conversation_details();
+        #exit;
+    }
+    print STDERR "[$to], [$subject], [$body], [$from], [$cc], [$bcc] [$replyto] \n\n";
+	&Launchh::sendmail($to, $subject, $body, $from, $cc, $bcc, $replyto);
+	return "success";
+}
+
+sub trim
+{
+    my $str = shift;
+    
+    $str =~ s/^\s+//;
+    $str =~ s/\s+$//;
+    
+    return $str;
+}
+
+sub get_reply_link
+{
+    &Launchh::select_accounts("WHERE account_email='$from_email'");
+    &Launchh::next_account();
+    my $account_id = $Launchh::account->{'account_id'};
+
+    &Launchh::select_funder_detail_by_id("WHERE account_funder_email = '$funder_email'");
+    &Launchh::next_funder_detail_byid();
+    my $funder_id=  $Launchh::funder_detail->{'account_funder_id'};
+    
+    print STDERR "GOT [$account_id] [$funder_id] \n";
+ 
+    my $token_str = "crAzybr0wnf0X";
+    my $randomstr = md5_hex("$account_id".$token_str."$funder_id" );
+ 
+    &Launchh::select_conversation_track($funder_id, $account_id);
+    &Launchh::next_conversation_track();
+    
+    if($Launchh::conversation_track->{'conversation_track_token'}  eq ''){
+	    my $new_id = 0;
+	    $Launchh::conversation_track->{'account_id'} = $account_id;
+	    $Launchh::conversation_track->{'funder_id'} = $funder_id;
+	    $Launchh::conversation_track->{'conversation_track_token'} = $randomstr ;
+	    $new_id = &Launchh::insert_conversation_track();
+    }
+    else{
+        $randomstr = $Launchh::conversation_track->{'conversation_track_token'};
+    }
+    my $page_url = 'http://';
+    $page_url = "https://" if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off");
+    $page_url .= $ENV{SERVER_NAME};
+    $page_url .= "/cred/reply_mail_now.php?conversation_token=$randomstr";
+    return $page_url;
+}
+
+=begin 
+1. To show appropriate notice while message sent
+2. To send message through online
+=cut

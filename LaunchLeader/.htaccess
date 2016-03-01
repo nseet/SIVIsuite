@@ -1,0 +1,179 @@
+Options +Includes -Indexes +FollowSymLinks  +ExecCGI
+Options -Multiviews
+
+AddHandler cgi-script .cgi .pl
+
+AddType text/html .shtml
+AddHandler server-parsed .shtml
+XBitHack on
+
+RewriteEngine On
+RewriteCond %{SERVER_PORT} 80
+RewriteRule ^(.*)$ https://vmentor.t1v1.com//$1 [R,L]
+
+RewriteCond %{QUERY_STRING} pmode=(.+)
+RewriteRule ^profile/([^\?]+)$ /profile?u=$1&pmode=%1 [L]
+
+RewriteEngine On
+RewriteRule ^profile/([^\?]+)$ /profile?u=$1 [L]
+
+<Files "embed">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "embed-launchh">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "attitude">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "awareness">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "admin">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "answers">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "answer">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "account">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "accounts">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "question">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "questions">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "feedback">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "feedbacks">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "categorys">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "category">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "params">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "param">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "widget">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "challenge">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "rewards">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "dashboard">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "reset">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "milestone">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "inbox">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "dash">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "join">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "profile>
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "idea>
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "discover">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "load-profile-short">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "stripe">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "account2">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "signup">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "rules">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "faq">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "logout">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "login">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "funding-confirm">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "privacy">
+SetHandler cgi-script
+ForceType text/html
+</Files>
+<Files "terms">
+SetHandler cgi-script
+ForceType text/html
+</Files>

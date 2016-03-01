@@ -1,0 +1,1571 @@
+#!/usr/bin/perl
+
+#!D:/TOWORK/bin/xampp/perl/bin/perl.exe
+
+use lib 'cgi-bin';
+use lib 'util';
+use Launchh;
+use strict;
+use Data::Dumper;
+use LWP::Simple;
+use POSIX qw(floor);
+use POSIX qw(ceil);
+use POSIX 'strftime';
+use Date::Calc qw(Delta_Days Add_Delta_Days);
+use CGI::Session;
+use LWP::UserAgent;
+use JSON;
+ 
+my $session = new CGI::Session("driver:File", undef, {Directory=>"/tmp"});
+my $cgi = new CGI;
+my $cookie = $cgi->cookie( "CGISESSID", $session->id );
+$session->expire("+20m");
+
+my $project_status = 80002;
+my $incomplete_status = 79999; 
+my $campaign_wpi_status = 80005;
+my $cancelled_status = 80004;
+
+my $uname  = $session->param("username") if(defined $session->param("username"));
+
+my $from_email = '';
+if($uname ne ''){
+    &Launchh::select_accounts("WHERE account_username='$uname'");
+    &Launchh::next_account();
+    $from_email = $Launchh::account->{'account_email'};
+    
+    if($Launchh::account->{'account_status'} == $cancelled_status ){
+        ##We are going to redirect to a cancelled page!!
+        print $session->header(-location=>'dashboard?mode=cancelled');
+        print $cgi->header(-Cache_control => 'no-cache', -Pragma => 'no-cache');      
+        &Launchh::clean_exit();
+    }
+}
+
+my $adminpush = $Launchh::_query->param('adminpush');
+$adminpush = "no" if($adminpush eq '');
+
+$Launchh::u = $Launchh::_query->param('u');
+
+&Launchh::select_accounts("WHERE account_username='$Launchh::u' or account_email= '$Launchh::u' ");
+&Launchh::next_account();
+$Launchh::uid = $Launchh::account->{'account_id'};
+
+my $pmode  = $session->param("pmode") if(defined $session->param("pmode"));
+ if($pmode eq '') {
+     #  $pmode = $Launchh::account->{'account_partnercrumb'};
+     $pmode = $Launchh::_query->param('pmode');
+ }
+print STDERR "pmode:: $pmode";
+
+
+if($pmode ne  '' && $pmode ne  'launchleader') {
+	$Launchh::HFILE = "template/empty-$pmode.html";
+}
+else{
+	$Launchh::HFILE = "empty-ll2.html";
+}
+my $ua = LWP::UserAgent->new;
+$ua->timeout(10);
+$ua->agent('Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.89 Safari/537.36');
+
+#print STDERR "u:[$Launchh::account->{'account_id'}]\n\n"
+if(!$Launchh::uid && 0)
+{
+    my $page_url = 'http://';
+    $page_url .= "https://" if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off");
+    $page_url .= $ENV{SERVER_NAME};
+		
+	print $session->header(-location=>$page_url.'/index.html');
+	print $cgi->header(-expires => 'now', -Cache_control => 'no-cache', -Pragma => 'no-cache');      
+	&Launchh::clean_exit();
+}
+
+&Launchh::select_account($Launchh::uid);
+
+my $og_title = "Click here to support entrepreneurship by ".$Launchh::account->{'account_name_first'}." ".$Launchh::account->{'account_name_last'};
+print $Launchh::_query->header();
+print_header(); # &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+print html_profile();
+print_footer();
+
+&Launchh::clean_exit();
+
+sub html_profile
+{
+    
+    my $default_milestone = $Launchh::DEFAULT_MILESTONE;
+    my $toolTipHead = "";
+    my $cur_date = POSIX::strftime('%Y-%m-%d %H:%M:%S', localtime);
+    my ($year2, $month2, $day2, $hour2, $min2, $sec2) = $cur_date =~ /^(\d\d\d\d)\-(\d\d)-(\d\d)\s+(\d\d)\:(\d\d)\:(\d\d)/;
+
+    my $first_name = $Launchh::account->{'account_name_first'};
+    my $last_name = $Launchh::account->{'account_name_last'}; 
+    my $headline = $Launchh::account->{'account_desc'};
+    
+    my $account_status = $Launchh::account->{'account_status'};
+    my $linkedin_username = "linkedin url";
+    #my $fb_app_id = "309437425817038";
+    my $fb_app_id = $Launchh::FB_APP_ID;
+    
+    my $fullname = "$first_name $last_name";
+
+    if($Launchh::account->{'account_note'} =~ /account_liun: (.+)\n/)
+    {
+       $linkedin_username = $1;
+    }
+    my $location = $Launchh::account->{'account_phone'};
+    #my $email = $Launchh::account->{'account_email'} || "email";
+    my $account_summary = "Or paste bio here";
+
+    my @detailArr;
+    &Launchh::select_details("WHERE detail_type=2 AND detail_status=1 ORDER BY CAST(detail_note AS DECIMAL(5,1))");
+    while(&Launchh::next_detail())
+    {
+       #&Launchh::select_question($Launchh::detail->{'detail_desc'});       
+       #my $question_limit = $Launchh::question->{'question_limit'};
+       #my $detail_note = $Launchh::detail->{'detail_note'}  ;
+
+       #select user's previous answer, if any
+       &Launchh::select_account_details("WHERE account_id=$Launchh::uid AND detail_id=$Launchh::detail->{'detail_id'} AND account_detail_status=1 ORDER BY account_detail_id desc LIMIT 1");
+       &Launchh::next_account_detail();
+   
+       my $detail_value = $Launchh::account_detail->{'account_detail_desc'};
+       my $detail_id = $Launchh::detail->{'detail_id'};
+       
+       $detailArr[$detail_id] = $detail_value;
+    }
+    
+    $default_milestone = 10 if ($detailArr[51] eq '1101000');
+    
+=begin
+#BLOCKED  FOR NOW THE PACKAGE RELATED CODE #
+    &Launchh::select_package_details("WHERE account_id=$Launchh::uid"); 
+    &Launchh::next_package_detail();
+
+    if($Launchh::package_detail->{'package_id'}){
+        &Launchh::select_packages("WHERE package_id=$Launchh::package_detail->{'package_id'}");
+        &Launchh::next_package();
+    }
+#BLOCKED  FOR NOW THE PACKAGE RELATED CODE END #    
+=cut    
+
+    my $str_fundraising ;
+    my $str_fundraiser ;
+    my $use_of_funds_str = '';
+    my $inx = 0;
+    my $fund_limit = 0;
+    my @use_of_funds_arr;
+    
+    my $current_fund = 0 ;
+    $current_fund = ceil(&Launchh::total_funded("WHERE funding_details.account_id = $Launchh::account->{'account_id'}" ));
+    
+
+    &Launchh::select_element_details("WHERE account_id = $Launchh::account->{'account_id'} AND element_detail_status = '1'" );
+    while(&Launchh::next_element_detail()){
+        &Launchh::select_elements("WHERE element_status=1 AND element.element_id = $Launchh::element_detail->{'element_id'}");
+        &Launchh::next_element();
+        if($Launchh::element->{'element_id'} eq '') {
+            next;
+        }
+        
+        #print STDERR "EID: ".$Launchh::element->{'element_id'}."\n";
+
+        my $already_disbursed = $Launchh::element_detail->{'element_detail_disbursed'};
+        my $first_funding_date = &Launchh::first_funding_date($Launchh::account->{'account_id'},$Launchh::element_detail->{'element_id'});
+        
+        my ($year1, $month1, $day1, $hour1, $min1, $sec1) = $first_funding_date =~ /^(\d\d\d\d)\-(\d\d)-(\d\d)\s+(\d\d)\:(\d\d)\:(\d\d)/;
+        my $funding_day_diff = 0;        
+        $funding_day_diff = Delta_Days( $year1, $month1, $day1,$year2, $month2, $day2 ) if($year1 ne '');
+        
+        
+        $toolTipHead = "";
+        if($funding_day_diff <= $default_milestone && $first_funding_date != 0){
+            my $daydiff = ($default_milestone  + 1 - $funding_day_diff);
+            $daydiff = $default_milestone if($daydiff > $default_milestone);
+            $daydiff .= " day";
+            $daydiff .= "s" if($daydiff > 1);
+            $toolTipHead  = "$daydiff remaining to reach the Milestone.";
+        }
+        
+        
+        
+        my $fund_raised_for_elements = 0;        
+        $fund_raised_for_elements = ceil(&Launchh::total_funded("WHERE funding_details.account_id = $Launchh::account->{'account_id'} AND funding_details.element_id = $Launchh::element_detail->{'element_id'} AND funding_details.funding_details_status = 1" ));
+        my $fund_percentage = 0;
+        $fund_percentage = floor ($fund_raised_for_elements /$Launchh::element->{'element_amount'} * 100) if($Launchh::element->{'element_amount'} > 0);
+        $fund_limit += $Launchh::element->{'element_amount'};
+        my $element_name = $Launchh::element->{'element_name'};
+        $element_name =~ s/([^^A-Za-z0-9\-_.!~*'()])/ sprintf "%%%0x", ord $1 /eg;
+        
+        my $remaining_trail = $Launchh::element->{'element_amount'} * 1 - $fund_raised_for_elements * 1;
+        my $pledgegoal = $Launchh::element->{'element_amount'} * 1;
+        
+        my $popper = "<a href=\"../ajax/paysocial-popup?trailer=$element_name&trailto=$Launchh::u&trailfor=$remaining_trail&pledgegoal=$pledgegoal&eId=$Launchh::element->{'element_id'}&pmode=$pmode\" class=\"btn btn-medium modal-trigger\">fund now</a>";
+        
+        if($remaining_trail * 1 <= 0){
+            $popper = '<a href="#" class="btn btn-checked"></a>' if(	$already_disbursed == 1 or $funding_day_diff > $default_milestone);
+            $toolTipHead = 'Entrepreneur reached the Milestone';
+        }
+        
+        elsif($funding_day_diff > $default_milestone){
+            $popper = '<a href="#" class="btn btn-crossed"></a>';
+            $toolTipHead = 'Entrepreneur failed to reach the Milestone for this';
+        }
+
+
+        #$element_name =~ s/\s+/\%20/g;
+        
+        #my $fund_percentage = 20;
+        
+        #my $trailed_result = $Launchh::u.'~#~'.($Launchh::element->{'element_amount'} * 1);
+        #$trailed_result = uri_encode(encode_base64($trailed_result));
+        my $milestone_top = '';
+        my $milestone_bottom = '';
+        
+        $milestone_top = ($default_milestone  + 1 - $funding_day_diff);
+        $milestone_top = $default_milestone if( $milestone_top > $default_milestone);
+        #if($fund_percentage ==  100 or $milestone_top < 0  ){
+        if($already_disbursed == 1 or $milestone_top < 0  ){
+            $milestone_top = 0 
+        }
+        
+        $milestone_bottom = "Day Left";
+        if($milestone_top > 1 or $milestone_top == 0){ 
+            $milestone_bottom = "Days Left";
+        }
+=begin        
+        if($milestone_top < 0 ){ 
+            $milestone_top = "Campaign";
+            ($year1, $month1, $day1) = Add_Delta_Days($year1,$month1,$day1,$default_milestone);
+            $milestone_bottom = "Ended at $day1/$month1/$year1";
+        }
+=cut        
+        
+        if($milestone_top == 31) { $milestone_top--; }
+        
+=begin
+        elsif ($funding_day_diff  == 0){
+            $milestone_top = "END";
+            $milestone_bottom = "Date TBD";            
+        }
+=cut	
+
+        my $fund_percentage_str = "$fund_percentage\%";
+        my $fund_percentage_str_footer = "Raised";
+        my $pledged_amount_str = "\$$fund_raised_for_elements";
+        my $pledged_amount_str_footer = "Pledged";
+        if($fund_percentage == 0){
+            $fund_percentage_str = "--";
+            $fund_percentage_str_footer = "Not Yet Started";            
+        }
+        if($fund_raised_for_elements ==0){
+            $pledged_amount_str = "--";
+            $pledged_amount_str_footer = "Fund Now To Start";            
+        }
+        print STDERR "[$funding_day_diff] [$default_milestone] [$first_funding_date] [$uname] [$Launchh::u] [$adminpush] [$fund_percentage]\n";
+
+=begin 
+        $str_fundraising .= <<EOM;
+                         <!-- DD $funding_day_diff  first_funding_date '$first_funding_date'  adminpush $adminpush -->
+EOM
+=cut
+
+        if( ($funding_day_diff <= $default_milestone) or ($uname eq $Launchh::u) or ($fund_percentage >= 100) or ($adminpush eq 'yes')){
+            $str_fundraising .= <<EOM;
+        
+									<div class="row">
+										<div class="progress" title='$toolTipHead'>
+											 <!--  -->
+                                                       <h4 style="right:0px;">
+                                                            $Launchh::element->{'element_name'}
+											</h4> 
+                                                     
+                                                      <div class="progress-bar">
+												<div class="meter" style="width: $fund_percentage%;"></div><!-- /.meter -->
+											</div><!-- /.progress-bar -->
+                                            
+											<span class="start green-bold">$pledged_amount_str<br><font size="2">$pledged_amount_str_footer</font></span>
+											<span class="current regular">$fund_percentage_str <br><font size="2" >$fund_percentage_str_footer</font></span>
+											<span class="milestone regular">$milestone_top<br><font size="2">$milestone_bottom</font></span>
+											<span class="end regular">\$$Launchh::element->{'element_amount'}<br><font size="2">Goal</font></span>
+                                            
+										</div><!-- /.progress -->
+
+										<div class="progress-actions">
+                                                           $popper                                                          
+											 <!-- <a href="social/fmttll?trailer=$Launchh::element->{'element_name'}&trailto=$Launchh::u&ttfull=$fullname&trailfor=$Launchh::element->{'element_amount'}&eId=$Launchh::element->{'element_id'}" class="btn btn-medium">Fund now</a>  -->
+											<!-- <a href="#" class="btn btn-medium ">\$ Fund</a> -->
+										</div><!-- /.progress-actions -->
+									</div><!-- /.row -->
+EOM
+        $use_of_funds_arr[$inx] = $Launchh::element->{'element_name'};
+    
+        $inx++;
+    }
+    }
+    
+    my $funder_id = '';
+    my $funded_element_name = '';
+    my $funder_avatar = '';
+    my $funder_title = '';
+    my $is_funded  = 0;
+
+    &Launchh::select_funder_detail_by_user_and_element($Launchh::account->{'account_id'}, 0);
+    while(&Launchh::next_funder_details()){
+
+        &Launchh::select_element_details("WHERE account_id = '$Launchh::account->{'account_id'}' AND element_detail_status = '1' AND element_id = $Launchh::funding_detail->{'element_id'}" );
+        &Launchh::next_element_detail();
+        
+        if($Launchh::element_detail->{'element_id'} eq '') {
+            next;
+        }
+                
+        &Launchh::select_elements("WHERE element_status=1 AND element.element_id = $Launchh::funding_detail->{'element_id'}");
+        &Launchh::next_element();
+
+        $funder_id =  $Launchh::funding_detail->{'account_funder_id'} if($funder_id eq '');
+
+        if( $funder_id ne $Launchh::funding_detail->{'account_funder_id'}){
+            $funder_id = $Launchh::funding_detail->{'account_funder_id'};
+            
+            $str_fundraiser .=<<EOM;
+										<li>
+											<div class="funder-avatar">
+												<img src="$funder_avatar" alt="" />
+											</div><!-- /.funder-avatar -->
+											
+											<div class="funder-title">
+												<h4>$funder_title funded:</h4>
+											
+												<p>$funded_element_name</p>
+											</div><!-- /.funder-title -->
+										</li>
+EOM
+                $funded_element_name = $Launchh::element->{'element_name'};
+        }
+        else{
+            $funded_element_name .= ', ' if($funded_element_name ne '');
+            $funded_element_name .= $Launchh::element->{'element_name'};            
+        }
+        
+        $funder_avatar = $Launchh::funding_detail->{'account_funder_avatar'};
+        $funder_title = $Launchh::funding_detail->{'account_funder_name'};
+        $is_funded++;
+    }
+    
+    if($is_funded){        
+            $str_fundraiser .=<<EOM;
+										<li>
+											<div class="funder-avatar">
+												<img src="$funder_avatar" alt="" />
+											</div><!-- /.funder-avatar -->
+											
+											<div class="funder-title">
+												<h4>$funder_title funded:</h4>
+											
+												<p>$funded_element_name</p>
+											</div><!-- /.funder-title -->
+										</li>
+EOM
+    }
+        
+    $is_funded = 0;    
+    $funded_element_name = '';
+    &Launchh::select_funder_detail_by_user_and_element($Launchh::account->{'account_id'}, 1);
+    while(&Launchh::next_funder_details()){
+
+        &Launchh::select_element_details("WHERE account_id = '$Launchh::account->{'account_id'}' AND element_detail_status = '1' AND element_id = $Launchh::funding_detail->{'element_id'}" );
+        &Launchh::next_element_detail();
+        
+        if($Launchh::element_detail->{'element_id'} eq '') {
+            next;
+        }
+                
+        &Launchh::select_elements("WHERE element_status=1 AND element.element_id = $Launchh::funding_detail->{'element_id'}");
+        &Launchh::next_element();
+
+        $funded_element_name .= ',' if($funded_element_name ne '');
+        $funded_element_name .= $Launchh::element->{'element_name'};            
+        
+        $is_funded++;
+    }
+
+
+    if($is_funded){
+        $funder_avatar = "http://launchh.com/social/images/launchleader-short.png";
+        $funder_title = "Anonymous";
+        
+            $str_fundraiser .=<<EOM;
+										<li>
+											<div class="funder-avatar">
+												<img src="$funder_avatar" alt="" />
+											</div><!-- /.funder-avatar -->
+											
+											<div class="funder-title">
+												<h4>$funder_title funded:</h4>
+											
+												<p>$funded_element_name</p>
+											</div><!-- /.funder-title -->
+										</li>
+EOM
+    }
+    
+    
+    my $fundArrLength = $#use_of_funds_arr + 1;
+    my $strip_flag = 2;
+    my $split_width = 50;
+
+    if($fundArrLength > 8){
+        $split_width = 33;
+        $strip_flag = 3 
+    }
+    $use_of_funds_str .= "<ul style=\"width:$split_width%\">" if($fundArrLength);
+
+    
+    my $flagShip = ceil($fundArrLength / $strip_flag);
+    $strip_flag = 1;
+    
+    for(my $inx = 0; $inx < $fundArrLength; $inx++){
+        #print STDERR "\n[$flagShip][$strip_flag] [$inx]\n";
+
+        $use_of_funds_str .= "<li>
+										   <span>$use_of_funds_arr[$inx]</span>
+									  </li>";
+        if(($inx  + 1)== $flagShip *  $strip_flag){
+            $use_of_funds_str .="</ul>\n<ul style=\"width:$split_width%\">";
+            $strip_flag++;
+            print STDERR "[FLAGGED]\n";
+            
+        }
+        
+    }
+    $use_of_funds_str .= "</ul>" if($fundArrLength);
+
+    my $education1 = $detailArr[16];
+    my $education2 = $detailArr[48];
+    
+    my $experience1= $detailArr[43];
+    my $experience2= $detailArr[49];
+    my $experience3= $detailArr[50];
+    
+    my $focus= $detailArr[13];
+    my $industry1= $detailArr[14];
+    my $industry2= $detailArr[34];
+    my $industry3= $detailArr[35];
+    my $profile_photo= $detailArr[25];
+    my $profile_video= $detailArr[26];
+    my $seeking= $detailArr[24];
+    my $skill1= $detailArr[17];
+    my $skill2= $detailArr[22];
+    my $skill3= $detailArr[23];
+    my $speciality= $detailArr[12];
+    my $summary= $detailArr[27];
+    my $facebook= $detailArr[46];
+    my $twitter= $detailArr[47];
+    
+    my $idea_available = $detailArr[28];
+
+    my $idea_summary = $detailArr[36];
+    my $idea_industry = $detailArr[37];
+    my $idea_focus1 = $detailArr[38];
+    my $idea_focus2 = $detailArr[39];
+    my $idea_focus3 = $detailArr[40];
+    my $idea_photo = $detailArr[41];
+    my $idea_description = $detailArr[42];
+
+    $idea_description =~ s/\n/<br>/g;
+    $idea_description =~ s/\r/<br>/g;
+    
+    $summary =~ s/\n/<br>/g;
+    $summary =~ s/\r/<br>/g;
+
+    #http://www.youtube.com/watch?v=Z85jKw8XI_Y
+    #http://www.youtube.com/v/-wtIMTCHWuI
+    #http://youtu.be/-wtIMTCHWuI
+     my $video_id  = '';
+    if($profile_video =~ /.*\?v=(.*?$)/ or 
+       $profile_video =~ /.*\/v\/(.*?$)/ or 
+       $profile_video =~ /.*be\/(.*?$)/ 
+    ){
+        $video_id = $1;
+        $video_id =~ s/^\s+//;
+        $video_id =~ s/\s+$//;
+        
+        $profile_video = "http://www.youtube.com/embed/".$video_id."?rel=0";
+        $profile_video = "https://www.youtube.com/embed/".$video_id."?rel=0"  if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off");
+    }
+    else{
+        $profile_video = "";
+    }
+    
+    my $twitter_name = '';
+    if( $twitter =~/.*twitter.com\/(.*?$)/){
+        $twitter_name = $1;
+    }
+    #$twitter_name = $twitter if($twitter_name eq '');
+     if($twitter_name eq '' && $facebook =~/.*twitter.com\/(.*?$)/){
+          $twitter_name = $1;
+     }
+     
+       #  <div class="flex-video widescreen"><iframe src="http://www.youtube.com/embed/VZDtSrij40A?rel=0" frameborder="0" allowfullscreen=""></iframe></div>
+
+    my $default_avatar_css = "";
+    my $active = "active";
+    my $slide_content = "" ;
+=begin    
+    #$slide_content .= "<div class=\"$active item\"><iframe width=\"900\" height=\"506\" src=\"$profile_video\" frameborder=\"0\" allowfullscreen></iframe></div>\n" if($profile_video ne '');
+    $slide_content .= "<div class=\"$active item\"><div class=\"flex-video widescreen\"><iframe  src=\"$profile_video\" frameborder=\"0\" allowfullscreen=\"\"></iframe></div></div>\n" if($profile_video ne '');
+    if($slide_content eq '') {$active = "active";} else {$active = "";} 
+    $slide_content .= "<div class=\"$active item\"><img src=\"../uploads/$Launchh::uid/idea-images/$idea_photo\" alt=\"\"/></div> \n" if($idea_photo ne '');
+    if($slide_content eq '') {$active = "active";} else {$active = "";} 
+    $slide_content .= "<div class=\"$active item\"><img  src=\"../uploads/$Launchh::uid/images/$profile_photo\" alt=\"\" /></div>\n" if($profile_photo ne '');
+=cut
+ 
+    #$slide_content .= "<div class=\"$active item\"><iframe width=\"900\" height=\"506\" src=\"$profile_video\" frameborder=\"0\" allowfullscreen></iframe></div>\n" if($profile_video ne '');
+    $slide_content .= "<li data-thumb=\"http://img.youtube.com/vi/$video_id/0.jpg\"> <iframe id=\"player_1\" src=\"$profile_video?api=1&amp;player_id=player_1\" width=\"500\" height=\"281\" frameborder=\"0\" webkitAllowFullScreen mozallowfullscreen allowFullScreen></iframe></li> \n" if($profile_video ne '');
+    $slide_content .= "<li data-thumb=\"../uploads/$Launchh::uid/idea-images/$idea_photo\"> <img src=\"../uploads/$Launchh::uid/idea-images/$idea_photo\"></li> \n" if($idea_photo ne '');
+    $slide_content .= "<li data-thumb=\"../uploads/$Launchh::uid/images/$profile_photo\"> <img src=\"../uploads/$Launchh::uid/images/$profile_photo\"></li>\n" if($profile_photo ne '');
+        
+        
+    if($slide_content eq ''){
+        ## We have to load the default avatar no other way we have now
+        $slide_content = '<li data-thumb="../images/launchleader-human-avatar.png"> <img src="../images/launchleader-human-avatar.png"></li>';
+        $default_avatar_css = "style='top: 50%;'";
+    }
+    my $project_id = $Launchh::uid;
+    my @completed_tools_arr;
+ #   my $total_premade_elements = 8;
+ #   for(my $element_inx = 1 ; $element_inx <= $total_premade_elements ; $element_inx++) {
+ 
+    my @elementArr;
+    my $element_count = 9;
+    &Launchh::select_element_details("WHERE account_id = $Launchh::account->{'account_id'} AND element_detail_status = '1' ORDER BY element_id ASC" );
+    while(&Launchh::next_element_detail()){
+        $elementArr[$element_count++] = $Launchh::element_detail->{'element_id'} if($Launchh::element_detail->{'element_id'} > 8);
+    }
+
+    for(my $inx = 1; $inx < $element_count; $inx++){
+        my $eID = $inx; 
+        $eID = $elementArr[$inx] if($inx > 8); 
+	
+        &Launchh::select_elements("WHERE element_status=1 AND element.element_id = '$eID'");
+        &Launchh::next_element();
+        if($Launchh::element->{'element_id'} eq '') {
+            next;
+        }
+        my $element_inx = $Launchh::element->{'element_id'};
+ 
+        &Launchh::select_completed_tools("where account_id = $Launchh::account->{'account_id'} AND element_id = '$eID' AND project_id = '$project_id'");
+        &Launchh::next_completed_tools();
+                
+        my $completed_tools_url  = $Launchh::completed_tools->{'completed_tools_url'};
+        #if($element_inx == 8 && $completed_tools_url =~ /.*\?v=(.*?$)/){
+        #    $completed_tools_url = $1;
+        #}
+        $completed_tools_arr[$eID] = $completed_tools_url;
+    }
+    
+
+=begin
+    $facebook =~/.*facebook.com\/(.*?$)/;     
+    my $facebook_name = $1;
+    
+    my $fb_like = 0;
+    if($facebook_name ne ''){
+        my $fb_content = get("http://graph.facebook.com/$facebook_name");
+        $fb_content =~ s/ /%20/g;
+        $fb_content =~ /"likes"\:(\d+),/;     
+        $fb_like = $1;
+        if($fb_like > 1000){
+            $fb_like = floor( $fb_like / 1000 ) ."K";
+        }
+    }
+    
+    $twitter =~/.*twitter.com\/(.*?$)/;     
+    my $twitter_name = $1;
+    
+    my $tw_like = 0;
+    if($twitter_name ne ''){
+        my $twitter_content = get("https://mobile.twitter.com/$twitter_name");
+        $twitter_content =~ s/\n+/ /g;
+        $twitter_content =~ s/\s+/ /g;
+    
+        $twitter_content =~ /<div class="statnum">(.*?)<\/div>/;     
+        $tw_like = $1;
+        $tw_like =~ s/,//g;
+        if($tw_like > 1000){
+            $tw_like = floor( $tw_like / 1000 ) ."K";
+        }
+    }
+=cut    
+    #print "FB_LIKE". $fb_like;
+
+
+
+    #exit;
+    #        <INPUT TYPE="HIDDEN" NAME="account_id" VALUE="$Launchh::uid">
+    my $page_url = 'http';
+    if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off") {
+        $page_url .= "s";
+    }
+    $page_url .= "://";
+    $page_url .= $ENV{SERVER_NAME}.$ENV{REQUEST_URI};
+
+    my $fund_percentage_total = 0;
+    $fund_percentage_total = ceil ($current_fund / $fund_limit  * 100)  if($fund_limit > 0);
+
+    my $str = << "EOM";
+              <style>
+          label {
+            display: inline-block;
+            width: 5em;
+          }
+          </style>        
+        <script>
+          \$(function() {
+            // \$( document ).tooltip();
+          });
+            function popupwindow(url, title, w, h) {
+	    
+              url = url.replace("#","%23") 
+              var left = (screen.width/2)-(w/2);
+              var top = (screen.height/2)-(h/2);
+              return window.open(url, title, 'toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=no, resizable=no, copyhistory=no, width='+w+', height='+h+', top='+top+', left='+left);
+            }         
+        </script>
+		<div class="section section-profile">
+			<div class="shell">
+                <!--            
+				<div class="section-head">
+					<div class="section-head-actions">
+						<a href="#" class="btn btn-medium btn-back">Back</a>
+						<a href="#" class="btn btn-medium btn-yellow">About Entrepreneur</a>						
+						<a href="./idea?u=$Launchh::account->{'account_username'}" class="btn btn-medium btn-grey">About Idea</a>
+					</div><! -- /.section-head-actions -- >
+				</div><!-- /.section-head -->
+
+				<div class="section-body">
+					<div class="profile">
+                    
+					    <div class="profile-head">
+						<h3>$idea_summary</h3>
+					    </div>
+                        
+EOM
+
+if($slide_content ne ''){
+
+=begin
+    $str .=<< "EOM";
+						<div class="profile-slider">
+							<div class="slides">
+								$slide_content								
+								<!-- <img src="images/launchleader-human-avatar.png" alt="" /> -->
+							</div><!-- /.slides -->
+							<a href="#" class="slider-prev"></a>
+							<a href="#" class="slider-next"></a>
+						</div><!-- /.profile-slider -->
+EOM
+
+=cut
+#=begin
+
+    $str .=<< "EOM";
+                            <div id="container" class="cf">
+                                <div id="main" role="main">
+                                  <section class="slider">
+                                    <div class="flexslider">
+                                      <ul class="slidesflex">    
+                                      $slide_content
+                                       </ul>
+                                    </div>
+                                  </section>
+                                </div>
+                            </div>                                       
+                                      
+EOM
+
+=begin
+
+                              <div class="profile-slider">
+					     <div class="slides" style="">
+                                    <div id="myCarousel" class="carousel slide">
+                                        <div class="carousel-inner">          
+                                                $slide_content
+                                    </div> <!--  carousel-inner -->
+                                    <a class="slider-prev"  $default_avatar_css href="#myCarousel" data-slide="prev"></a>
+                                   <a class="slider-next" $default_avatar_css href="#myCarousel" data-slide="next"></a>    
+                              </div><!-- /.slides -->
+						</div><!-- /.profile-slider -->
+		</div>
+=cut
+
+#=cut
+}
+    $str .=<< "EOM";
+						<div class="profile-meta"> 
+EOM
+
+
+my $pledged_amount_total_str = "\$$current_fund";
+my $pledged_amount_total_str_footer = "Pledged";
+
+my $fund_percentage_total_str = "$fund_percentage_total\%";
+my $fund_percentage_total_str_footer = "Raised";
+
+if($current_fund ==0){
+    $pledged_amount_total_str = "--";
+    $pledged_amount_total_str_footer = "Fund Now To Start"; 
+}
+
+if($fund_percentage_total == 0){
+    $fund_percentage_total_str = "--";
+    $fund_percentage_total_str_footer = "Not Yet Started";            
+}
+
+        
+if($fundArrLength && $incomplete_status != $account_status){
+    $str .=<< "EOM";
+							<div class="progress">
+								<div class="progress-bar">
+									<div class="meter" style="width: $fund_percentage_total%;"></div><!-- /.meter -->
+								</div><!-- /.progress-bar -->
+								<span class="start green-bold">$pledged_amount_total_str<br><font size="2">$pledged_amount_total_str_footer</font></span>
+								<span class="current regular" style="left:50%">$fund_percentage_total_str<br><font size="2">$fund_percentage_total_str_footer</font></span>
+								<span class="end regular">\$$fund_limit<br><font size="2">Goal</font></span>
+							</div><!-- /.progress -->
+EOM
+}
+
+    $str .=<< "EOM";
+							<div class="update-share">
+								<ul style="margin-left:40px">
+									<li>
+										<!-- \$ fb_like	-->
+										<a href="#" onClick="javascript:popupwindow('https://www.facebook.com/sharer/sharer.php?app_id=$fb_app_id&sdk=joey&u=$page_url&display=popup&ref=plugin','Click here to support entrepreneurship by $fullname','650','350')" class="btn btn-fb-share"></a> 
+									</li>
+									
+									<li>
+                                        <!-- \$ tw_like	 -->
+										<a href="#" onClick="javascript:popupwindow('https://twitter.com/intent/tweet?text=Join me supporting %23entrepreneurship by $first_name $last_name&url=$page_url&via=sivicorp','title','650','350')" class="btn btn-tw-tweet"></a>
+									</li>
+                                    </ul>
+                                    <ul style="margin-left:40px">
+									<li>
+										<a href="../social/get_short_url?tsu=$Launchh::account->{'account_username'}"  class="btn btn-link-share modal-trigger"></a>
+									</li>
+									<li>
+										<a href="../ajax/embed-profile?tsu=$Launchh::account->{'account_username'}"  class="btn btn-embed-share modal-trigger"></a>
+									</li>
+								</ul>
+							</div><!-- /.update-share -->
+						</div><!-- /.profile-meta -->
+EOM
+
+if($fundArrLength && $account_status != $incomplete_status){
+    $str.= <<EOM;
+
+						<div class="profile-tabs profile-tabs-alt">
+							<div class="tabs-head">
+								<div class="tabs-nav">
+									<ul>
+										<li class="current">
+											<a href="#tab-fundraising">Fundraising</a>
+										</li>
+
+										<li>
+											<a href="#tab-funders">Funders</a> 
+											 <!-- <a href="#">Funders</a>  -->
+										</li>										
+									</ul>
+								</div><!-- /.tabs-nav -->
+							</div><!-- /.tabs-head -->
+
+							<div class="tabs-body">
+								<div class="tab current" id="tab-fundraising">
+                                                $str_fundraising
+								</div><!-- /.tab -->
+								
+								<div class="tab" id="tab-funders">
+									<ul class="funders-list">
+                                                $str_fundraiser
+									</ul><!-- /.funders-list -->
+								</div><!-- /.tab -->
+							</div><!-- /.tabs-body -->
+						</div><!-- /.profile-tabs -->
+EOM
+
+}
+       $str.= <<EOM;
+                           
+                              <!-- 
+                               <div class="profile-fund">
+							<a href="#" class="btn btn-xlarge">fund now</a>
+						 </div><!-- /.profile-fund -->
+                         
+						<div class="profile-content">
+EOM
+
+if($idea_description ne ''){
+    $str.= <<EOM;
+							<div class="info-list">
+                                            <h4>Idea Description</h4>
+                                            <p>
+                                                $idea_description
+                                            </p>
+                            </div>
+EOM
+}
+
+if($fundArrLength && $account_status != $incomplete_status){
+    $str.= <<EOM;
+							<div class="info-list" >
+								<h4>Uses of Funds</h4>
+								 $use_of_funds_str
+							</div><!-- /.info-list -->
+EOM
+}
+
+if($idea_available eq 'yes'){
+    $str .= completed_tools_html(@completed_tools_arr);
+}
+
+    $str.= <<EOM;
+    							<div class="info-list">
+
+                                    <div class="profile-head">
+                                                <h2>ABOUT ENTREPRENEUR</h2>
+                                                <h3>$first_name $last_name</h3>
+                                        <h4>$Launchh::account->{'account_desc'}</h4>
+                                        <span>
+                                            <i class="ico ico-location"></i>$Launchh::account->{'account_phone'}
+                                        </span>
+                                    </div><!-- /.profile-head -->
+							</div><!-- /.info-list -->
+EOM
+
+if($skill1.$skill2.$skill3 ne '' or ($speciality ne '' && $speciality ne 'Select Specialty')){
+                $str .= << "EOM";
+							<div class="info-list info-list-alt">
+EOM
+
+    if($speciality ne ''&& $speciality ne 'Select Specialty' ){
+                $str .= << "EOM";
+								<div class="col col-1of2">
+									<h4>Speciality</h4>
+									<ul>
+										<li>
+											<span>$speciality</span>
+										</li>
+									</ul>
+								</div><!-- /.col col-1of2 -->
+EOM
+    }
+
+    if($skill1.$skill2.$skill3 ne ''){
+                $str .= << "EOM";
+								<div class="col col-1of2">
+									<h4>Skills</h4>
+EOM
+    }
+
+    if($skill1 ne ''){
+        $str .= << "EOM";
+                                        <ul>
+                                            <li>
+                                                <span>$skill1</span>
+                                            </li>																
+                                        </ul>
+        
+EOM
+    }
+
+    if($skill2 ne ''){
+        $str .= << "EOM";
+                                        <ul>
+                                            <li>
+                                                <span>$skill2</span>
+                                            </li>																
+                                        </ul>
+        
+EOM
+    }
+
+    if($skill3 ne ''){
+        $str .= << "EOM";
+                                        <ul>
+                                            <li>
+                                                <span>$skill3</span>
+                                            </li>																
+                                        </ul>
+        
+EOM
+    }
+
+    if($skill1.$skill2.$skill3 ne ''){
+                $str .= << "EOM";
+								</div><!-- /.col col-1of2 -->								
+EOM
+    }
+                $str .= << "EOM";                                
+							</div><!-- /.info-list -->
+EOM
+
+}
+
+if($experience1.$experience2.$experience3 ne '' or $education1.$education2 ne ''){
+        $str .= << "EOM";                                
+							<div class="info-list info-list-alt">
+EOM
+    if($experience1.$experience2.$experience3 ne ''){
+            $str .= << "EOM";                                
+								<div class="col col-1of2">
+									<h4>Experience</h4>
+EOM
+    }
+    if($experience1 ne ''){
+        $str .= << "EOM";
+									<ul>
+										<li>
+											<span>$experience1</span>
+										</li>																
+									</ul>
+    
+EOM
+    }
+    if($experience2 ne ''){
+        $str .= << "EOM";
+									<ul>
+										<li>
+											<span>$experience2</span>
+										</li>																
+									</ul>
+    
+EOM
+    }
+    if($experience3 ne ''){
+        $str .= << "EOM";
+									<ul>
+										<li>
+											<span>$experience3</span>
+										</li>																
+									</ul>
+    
+EOM
+    }
+    
+    if($experience1.$experience2.$experience3 ne ''){
+            $str .= << "EOM";                                
+                                    </div><!-- /.col col-1of2 -->
+EOM
+    }
+
+    if($education1.$education2 ne ''){
+        $str .= << "EOM";                                
+								<div class="col col-1of2">
+									<h4>Education</h4>
+EOM
+}
+
+    if($education1 ne ''){
+        $str .= << "EOM";
+									<ul>
+										<li>
+											<span>$education1</span>
+										</li>																
+									</ul>
+    
+EOM
+    }
+    
+    if($education2 ne ''){
+        $str .= << "EOM";
+									<ul>
+										<li>
+											<span>$education2</span>
+										</li>																
+									</ul>
+    
+EOM
+    }
+    if($education1.$education2 ne ''){
+        $str.=<<"EOM";
+								</div><!-- /.col col-1of2 -->								
+EOM
+    }
+        $str.=<<"EOM";
+							</div><!-- /.info-list -->
+EOM
+}
+
+if($industry1.$industry2.$industry3 ne '' or $seeking ne ''){
+        $str.=<<"EOM";
+							<div class="info-list info-list-alt">
+EOM
+
+    if($industry1.$industry2.$industry3 ne ''){
+            $str.=<<"EOM";
+								<div class="col col-1of2">
+									<h4>Industry</h4>
+EOM
+    }
+
+    if($industry1 ne ''){
+        $str .= << "EOM";
+									<ul>
+										<li>
+											<span>$industry1</span>
+										</li>																
+									</ul>
+    
+EOM
+    }
+    
+    if($industry2 ne ''){
+        $str .= << "EOM";
+									<ul>
+										<li>
+											<span>$industry2</span>
+										</li>																
+									</ul>
+    
+EOM
+    }
+
+    if($industry3 ne ''){
+        $str .= << "EOM";
+									<ul>
+										<li>
+											<span>$industry3</span>
+										</li>																
+									</ul>
+    
+EOM
+    }
+    if($industry1.$industry2.$industry3 ne ''){
+            $str.=<<"EOM";
+    								</div><!-- /.col col-1of2 -->
+EOM
+}
+
+    if($seeking ne ''){
+            $str.=<<"EOM";
+								<div class="col col-1of2">
+									<h4>Seeking</h4>
+                                                <ul>
+EOM
+    }
+
+    my @seeking_elements = split /,/, $seeking;
+    
+    my $element_name;
+    for my $i (0 .. $#seeking_elements){
+            $element_name = $seeking_elements[$i];
+            $element_name =~ s/^\s+//;
+            $element_name =~ s/\s+$//;
+            if($element_name eq '') {
+                next;
+            }            
+            $str .= << "EOM";
+										<li>
+											<span>$element_name</span>
+										</li>																
+EOM
+    }
+    if($seeking ne ''){
+    $str .= << "EOM";                                        
+									</ul>
+								</div><!-- /.col col-1of2 -->								
+EOM
+    }
+    $str .= << "EOM";                                        
+							</div><!-- /.info-list -->                            
+EOM
+}
+
+    my @updateArr;
+    my @tempArr;
+    &Launchh::select_user_updates("WHERE account_id = '$Launchh::account->{'account_id'}' AND user_update_public = '1'");
+    while(&Launchh::next_user_update()){
+            my $update_id    =  $Launchh::user_update->{'user_update_id'} ;
+            my $update_title =  $Launchh::user_update->{'user_update_title'} ;
+            my $update_time =  $Launchh::user_update->{'user_update_datetime'} ;
+            #my ($year, $month, $day) = $update_time =~ /^(\d\d\d\d)-(\d\d)-(\d\d)/;
+            #$update_time = "$day/$month/$year";
+            #@tempArr = ("Update", "<a href=\"dashboard?u=$username&mode=update&post_id=$update_id\">$update_title</a>", $update_time);
+            @tempArr = ("Update", "$update_title", $update_time);
+            push(@updateArr, [@tempArr]);
+            
+            my @sorted_by_date = sort { $b->[2] cmp $a->[2] } @updateArr;
+            @updateArr = @sorted_by_date;
+    }    
+    
+    $str .= << "EOM";                                        
+						</div><!-- /.profile-content -->
+
+						<div class="profile-message"> <!-- $from_email -->
+							 <a href="../ajax/send-message?uname=$Launchh::u&from_email=$from_email" class="btn btn-large modal-trigger">message</a> 
+							 <!-- <a href="#" class="btn btn-large modal-trigger">message</a>  -->
+							  <!-- <a href="#" class="btn btn-large">message</a> -->
+						</div><!-- /.profile-message -->
+
+						<div class="profile-tabs">
+							<div class="tabs-head">
+								<div class="tabs-nav">
+									<ul>
+										<li class="current"><a href="#tab-summary">Summary</a></li>
+EOM
+
+#if($idea_available eq 'yes'){
+{
+    $str .= <<EOM;
+										<li><a href="#tab-updates">Updates</a></li>
+EOM
+}
+    $str .= <<EOM;
+										<!-- <li><a href="#tab-get-updates">Get Updates</a></li>										 -->
+									</ul>
+								</div><!-- /.tabs-nav -->
+							</div><!-- /.tabs-head -->
+
+							<div class="tabs-body">
+								<div class="tab current" id="tab-summary">
+									<p>$summary</p>
+								</div><!-- /.tab -->
+EOM
+
+#if($idea_available eq 'yes'){
+{
+            $str .= <<EOM;								
+								<div class="tab" id="tab-updates">
+                                                <table width="75%" border="0" cellspacing="0" cellpadding="0" class="table-activity">
+EOM
+        for(my $inx = 0; $inx <= $#updateArr; $inx++){
+             my ($year, $month, $day) = $updateArr[$inx][2] =~ /^(\d\d\d\d)-(\d\d)-(\d\d)/;
+             $updateArr[$inx][2] = "$day/$month/$year";            
+             
+            $str .= <<EOM;
+											<tr>
+												<td class="td-label">
+													<a href="#tab-updates" class="tab-trigger tab-trigger-update">$updateArr[$inx][0]</a>
+												</td><!-- /.td-label -->
+												<td class="td-entry">$updateArr[$inx][1]</td><!-- /.td-entry -->
+												<td class="td-date">$updateArr[$inx][2]</td><!-- /.td-date -->
+											</tr>
+EOM
+        }
+
+        
+    $str .= <<EOM;
+                                                </table><!-- /.table-activity -->
+                                        </div><!-- /.tab -->
+EOM
+}
+    $str .= <<EOM;
+								<!--
+								<div class="tab" id="tab-get-updates">
+									
+								</div><!-- /.tab -->
+							</div><!-- /.tabs-body -->
+						</div><!-- /.profile-tabs -->
+
+						<div class="profile-actions">
+							 <a href="../ajax/subscribe?uname=$Launchh::u&subscriber_email=$from_email" class="btn btn-medium modal-trigger">Subscribe to Updates</a> 
+							 <a href="../ajax/refer-friend?firstname=$first_name&uname=$Launchh::u" class="btn btn-medium modal-trigger">Refer to a Friend</a> 
+							<!-- <a href="#" class="btn btn-medium modal-trigger">Refer to a Friend</a> -->
+							<!-- <a href="#" class="btn btn-medium">Refer to a Friend</a> -->
+						</div><!-- /.profile-actions -->
+EOM
+
+if($idea_available eq 'yes' && $incomplete_status != $account_status){
+    $str .= <<EOM;
+                            <div class="section-comments">                    
+                                <div class="section-actions">
+                                     <a href="../ajax/report-violation?uname=$Launchh::u" class="btn btn-medium btn-red modal-trigger">Report Violation of Terms</a> 
+                                </div><!-- /.section-actions -->
+                            </div><!-- /.section-comments -->
+                            
+                        </div><!-- /.profile -->
+EOM
+}
+
+my $timestamp = time;
+
+=begin
+$str .= << "EOM";
+			<div class="section section-home-updates section-profile-updates">
+			<div class="shell">
+				<div class="section-head" id="section-headx">
+					<h2>YOU MAY ALSO LIKE</h2>
+				</div><!-- /.section-head -->
+
+				<div class="section-body">
+					<div class="home-slider">
+						<ol class="updates"  id="footer-slider">
+	
+                </ol><!-- /.updates -->
+						
+						<a href="#" class="home-slider-prev"></a>						
+						<a href="#" class="home-slider-next"></a>
+					</div><!-- /.home-slider -->
+				</div><!-- /.section-body -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-home-updates -->
+        
+EOM
+=cut
+
+#=begin 
+
+$str .= << "EOM";
+				</div><!-- /.section-body -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-profile -->
+
+<script>
+        \$(document).ready(function(){
+             \$.ajax(
+                {
+                    type: 'POST',
+                    cache: false,
+                    dataType: 'html',                    
+                    url: 'load-profile-short',
+                    data: {showmore :  '$Launchh::u',   loadindex: '0',   loadlimit: '6'},
+                    success: function(data)
+                    {
+                         if (data && data.error && data.errorno)
+                         {
+                               // there is an application-level error. Hande it.
+                               // ...
+                               return;
+                         }
+                         if(data == 'no-data'){
+                            \$('#section-headx').css({"visibility":"hidden"});
+                        }
+                        else{
+                            \$('#footer-slider').html(data);
+                        }
+                    }
+                });                 
+          });
+</script>
+
+<script type="text/javascript" charset="utf-8">
+			\$(document).ready(function(){
+				\$("area[rel^='prettyPhoto']").prettyPhoto();
+				
+				\$(".gallery:first a[rel^='prettyPhoto']").prettyPhoto({animation_speed:'normal',theme:'light_square',slideshow:3000, autoplay_slideshow: false, social_tools:false});
+				\$(".gallery:gt(0) a[rel^='prettyPhoto']").prettyPhoto({animation_speed:'fast',slideshow:10000, hideflash: false, social_tools: false});
+		
+			});
+</script>
+        
+EOM
+
+return $str;
+
+}
+
+sub completed_tools_html{
+    
+    my @completed_tools_arr = @_;
+    
+    my $comp_logohw = "width=150 height=150";    
+    #my $image_location_pref = "";
+    my $image_location_pref = "../";
+    
+    my $str_child = "";
+    
+    my $str = "";
+    $str .=<<EOM;
+                                    <div class="info-list info-list-alt info-list-video">
+                                        <h4>Completed Tools</h4>						
+EOM
+
+#    my $total_premade_elements = 8;
+#    for(my $element_inx = 2 ; $element_inx <= $total_premade_elements ; $element_inx++) {
+    my @elementArr;
+    my $element_count = 9;
+    &Launchh::select_element_details("WHERE account_id = $Launchh::account->{'account_id'} AND element_detail_status = '1' ORDER BY element_id ASC" );
+    while(&Launchh::next_element_detail()){
+        $elementArr[$element_count++] = $Launchh::element_detail->{'element_id'} if($Launchh::element_detail->{'element_id'} > 8);
+    }
+
+    for(my $inx = 1; $inx < $element_count; $inx++){
+        my $eID = $inx; 
+        $eID = $elementArr[$inx] if($inx > 8); 
+	
+        &Launchh::select_elements("WHERE element_status=1 AND element.element_id = '$eID'");
+        &Launchh::next_element();
+        if($Launchh::element->{'element_id'} eq '') {
+            next;
+        }
+        
+        my $element_inx = $Launchh::element->{'element_id'};
+        my $completed_tools_url = $completed_tools_arr[$element_inx];
+        &Launchh::select_elements("WHERE element_status=1 AND element.element_id = $element_inx");
+        &Launchh::next_element();
+        #<a href="http://www.youtube.com/watch?v=kh29_SERH0Y" rel="prettyPhoto" title="YouTube demo"><img src="images/thumbnails/flash-logo.png" width="60" alt="" /></a></li>
+        if($completed_tools_url ne '' && $Launchh::element->{'element_name'} ne ''){
+            
+            if( $completed_tools_url =~ /youtube\.com/ or 
+                 $completed_tools_url =~ /youtu\.be/ or
+                 $completed_tools_url =~ /vimeo\.com/) {
+                    my $video_logo_url = "";
+                    if( $completed_tools_url =~ /youtube\.com/ or $completed_tools_url =~ /youtu\.be/ ){
+                         my $video_id  = '';
+                         if($completed_tools_url =~ /.*\?v=(.*?$)/ or 
+                           $completed_tools_url =~ /.*\/v\/(.*?$)/ or 
+                           $completed_tools_url =~ /.*be\/(.*?$)/ 
+                         ){
+                            $video_id = $1;
+                            $video_id =~ s/^\s+//;
+                            $video_id =~ s/\s+$//;
+                        }    
+                        $video_logo_url = "http://img.youtube.com/vi/$video_id/0.jpg";
+                        #$video_logo_url = $image_location_pref."images/YT.png";
+                    }
+                    elsif( $completed_tools_url =~ /vimeo\.com/){
+                        my $vimeo_json_content  = '';
+                        if($completed_tools_url =~ /.*vimeo.com\/(.*?$)/){
+                            my $video_id = $1;
+                            my $vimeo_response = $ua->get("http://vimeo.com/api/v2/video/$video_id.json");
+                            $vimeo_json_content = $vimeo_response->decoded_content;
+                            $vimeo_json_content =~ s/^\/\*\s*\*\///;
+                            
+                            #print $vimeo_json_content;
+                            my $vimeo_json = decode_json($vimeo_json_content);
+                            for my $report ( @{$vimeo_json} ) {
+                                $video_logo_url =  $report->{thumbnail_medium}
+                            }  
+                        }                            
+                        $video_logo_url = $image_location_pref."images/vimeo.png" if($video_logo_url  eq '');
+                    }    
+                    my $completed_element_str = $Launchh::element->{'element_name'};
+                    $completed_element_str = "Intro Video" if($element_inx == 8);
+                    
+                    $str_child .=<<EOM;
+                            <div class="company-logo gallery">
+                               <a href="$completed_tools_url" rel="prettyPhoto" title="$completed_element_str"><img src="$video_logo_url" width="150" alt="" /></a>
+                                <h5>$completed_element_str</h5>
+                            </div><!-- /.intro-video -->                
+EOM
+            }
+            else{
+                my $completed_element_str = "";
+                $completed_element_str = $Launchh::element->{'element_name'};
+                $completed_element_str = "Company Logo" if($completed_element_str eq 'Logo');
+                my $rel_str = "target=\"_blank\"";
+                my $image_url = $completed_tools_url;
+                $image_url = "images/dropbox.png"  if( $completed_tools_url =~ /dropbox\.com/);
+                $image_url = "images/PDF.png" if($completed_tools_url =~ /\.pdf/);
+                $image_url = "images/PPT.png" if($completed_tools_url =~ /\.ppt/);
+                $image_url = "images/ZIP.png" if($completed_tools_url =~ /\.zip/);
+                $image_url = "images/DOC.png" if($completed_tools_url =~ /\.doc/);
+                $image_url = "images/DOCX.png" if($completed_tools_url =~ /\.docx/);
+                my $site_down = 0;
+                
+                 if($image_url eq $completed_tools_url){
+                      if(
+                        $completed_tools_url !~ /\.png/ and 
+                        $completed_tools_url !~ /\.jpg/ and 
+                        $completed_tools_url !~ /\.bmp/ and 
+                        $completed_tools_url !~ /\.jpeg/ and 
+                        $completed_tools_url !~ /\.gif/
+                      ){
+                          #$completed_tools_url = ""
+                          if($completed_tools_url !~ /http/){
+                              $completed_tools_url = "http://".$completed_tools_url;
+                          }
+                         my $response = $ua->get($completed_tools_url);
+                         if (!$response->is_success) {
+                                $site_down = 1;
+                         }                          
+                   
+                        $image_url = "http://api.thumbalizr.com/?url=".$completed_tools_url."&width=250";
+                      }
+                     else{
+                        $rel_str = 'rel="prettyPhoto"';
+                    }
+                 }
+                 else{
+                     $image_url  = $image_location_pref.$image_url;
+                 }
+                
+                if( $completed_tools_url =~ /dropbox\.com/) {
+                        $str_child .=<<EOM;
+                           <div class="company-logo">
+                                <a href="$completed_tools_url"  target="_blank"><img src="$image_url" alt="" $comp_logohw border=0></a>
+                                <h5>$completed_element_str</h5>
+                            </div><!-- /.$completed_element_str -->
+EOM
+                }
+                elsif(!$site_down){                    
+                        $str_child .=<<EOM;
+                           <div class="company-logo gallery">
+                                <a href="$completed_tools_url"  $rel_str title="$completed_element_str"><img src="$image_url" alt="" $comp_logohw border=0></a>
+                                <h5>$completed_element_str</h5>
+                            </div><!-- /.$completed_element_str -->
+EOM
+                }
+                
+            }
+        }
+    }
+
+=begin
+        if($comp_logo ne ''){
+                $str .=<<EOM;
+                                       <div class="company-logo">
+                                            <img src="$comp_logo" alt="" $comp_logohw/>
+                                            <h5>Company Logo</h5>
+                                        </div><!-- /.company-logo -->
+EOM
+            }
+
+                        <div class="intro-video gallery">
+                            <div class="video-playback">
+                                <a href="#">
+                                    <div class="youtube-player" data-yt-video-id="$intro_video" data-yt-controls="0" data-yt-autoplay="0"></div>
+                                </a>
+                            </div><!-- /.video-playback -->
+                            <h5>Intro Video</h5>
+                        </div><!-- /.intro-video -->                
+
+=cut
+ 
+
+ $str .=<<EOM;
+                $str_child
+                                    </div><!-- /.info-list -->
+EOM
+
+    return $str;
+}
+    
+sub print_header
+{
+   my $header = &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+#$user_header_str = " of ".$Launchh::account->{'account_name_first'} if($Launchh::account->{'account_name_first'} ne '');
+   my $rand = rand(10000);
+   
+   my $custom_css_js = ' --> 
+     <link rel="stylesheet" type="text/css" href="../css/prettyPhoto.css">
+     <script src="../js/jquery.prettyPhoto.js" type="text/javascript" charset="utf-8"></script> 
+     <link rel="stylesheet" href="../css/flexslider/flexslider.css" type="text/css" media="screen" /> 
+     <script src="../js/flexslider/modernizr.js"></script> <!--';
+
+ 
+
+   $header =~ s/XXXTITLEXXX/USER PROFILE/is;
+   $header =~ s/TITLE_FOR_SOCIAL_SITE/$og_title/gs;
+   $header =~ s/CUSTOM_CSS_JS/$custom_css_js/gs;
+   
+   if( $session->param("uid")  ne ''){
+        $header =~ s/<li class="separator">\s*<a href=".*?login">Login<\/a>/<li class="separator"><a href="..\/logout?pmode=$pmode">Logout<\/a>/is  if($pmode ne '');        
+        $header =~ s/<li class="separator">\s*<a href=".*?login">Login<\/a>/<li class="separator"><a href="..\/logout?$rand">Logout<\/a>/is ;        
+        $header =~ s/DASHBOARDSTR/<li><a href="..\/dashboard">My Dashboard<\/a><\/li>/is;   
+        $header =~ s/SIGNUPSTR//is;
+    }
+    else{
+        $header =~ s/DASHBOARDSTR//is;
+    }
+
+    if( $pmode ne '' ){
+        $header =~ s/faq">/faq\?pmode=$pmode">/is;   
+        $header =~ s/login">/login\?pmode=$pmode">/is;   
+        $header =~ s/discover">/discover\?pmode=$pmode">/is;   
+        $header =~ s/dashboard">/dashboard\?pmode=$pmode">/is;   
+	$header =~ s/SIGNUPSTR/<li class="signup"><a href=\"..\/signup?pmode=$pmode\">Sign Up<\/a><\/li>/is;                
+       }
+    
+   $header =~ s/SIGNUPSTR/<li class="signup"><a href=\"..\/signup\">Sign Up<\/a><\/li>/is;   
+   
+ 
+   print $header;
+}
+
+
+sub print_footer
+{
+    
+   my $footer = &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+
+  my $custom_css_js_footer = ' --> 
+    <!-- <script src="http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script> 
+    <script>window.jQuery || document.write("<script src="js/libs/jquery-1.7.min.js">\x3C/script>")</script> -->
+
+    <!-- FlexSlider -->
+      <script defer src="../js/flexslider/jquery.flexslider.js"></script>
+
+      <script type="text/javascript">
+        $(function(){
+            SyntaxHighlighter.all();
+        });
+        
+        $(window).load(function(){
+
+        // Vimeo API nonsense
+        if( document.getElementById("player_1") != null)
+        {	var player = document.getElementById("player_1");
+            $f(player).addEvent("ready", ready);
+        }
+
+        function addEvent(element, eventName, callback) {
+        (element.addEventListener) ? element.addEventListener(eventName, callback, false) : element.attachEvent(eventName, callback, false);
+        }
+
+        function ready(player_id) {
+        var froogaloop = $f(player_id);
+
+        froogaloop.addEvent("play", function(data) {
+          $(".flexslider").flexslider("pause");
+        });
+
+        froogaloop.addEvent("pause", function(data) {
+            $(".flexslider").flexslider("play");
+        });
+      }
+
+
+      // Call fitVid before FlexSlider initializes, so the proper initial height can be retrieved.
+      $(".flexslider")
+        .fitVids()
+        .flexslider({
+          animation: "slide",
+          controlNav: "thumbnails",
+          useCSS: false,
+          animationLoop: false,
+          smoothHeight: true,
+          start: function(slider){
+            $("body").removeClass("loading");
+          },
+          before: function(slider){
+            if( document.getElementById("player_1") != null){ $f(player).api("pause");}
+          }
+      });
+    });
+  </script>
+
+   <!-- Syntax Highlighter -->
+	<script type="text/javascript" src="../js/flexslider/shCore.js"></script>
+	<script type="text/javascript" src="../js/flexslider/shBrushXml.js"></script>
+	<script type="text/javascript" src="../js/flexslider/shBrushJScript.js"></script>
+
+  <!-- Optional FlexSlider Additions -->
+    <script src="../js/flexslider/froogaloop.js"></script>
+	<script src="../js/flexslider/jquery.fitvid.js"></script>
+
+ <!--';
+
+   $footer =~ s/CUSTOM_CSS_JS_FOOTER/$custom_css_js_footer/gs;
+
+
+    if( $pmode ne '' ){
+        $footer =~ s/privacy"/..\/privacy\?pmode=$pmode"/is;   
+        $footer =~ s/terms"/..\/terms\?pmode=$pmode"/is;   
+    }
+    
+    print $footer;
+}

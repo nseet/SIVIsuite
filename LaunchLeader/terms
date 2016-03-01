@@ -1,0 +1,1222 @@
+#!/usr/bin/perl
+
+#use lib '../../siviacademy.com/cgi-bin';
+use lib 'cgi-bin';
+use lib 'util';
+use Launchh;
+use CGI::Session;
+
+my $session = new CGI::Session("driver:File", undef, {Directory=>"/tmp"});
+my $cgi = new CGI;
+my $cookie = $cgi->cookie( "CGISESSID", $session->id );
+$session->expire("+20m");
+
+$Launchh::uid = $session->param("uid") if($Launchh::uid  eq '');
+
+my $pmode  = $session->param("pmode") if(defined $session->param("pmode"));
+$pmode = $Launchh::_query->param('pmode') if($pmode eq '');
+
+if($pmode ne  '' && $pmode ne  'launchleader') {
+	$Launchh::HFILE = "template/empty-$pmode.html";
+}
+else{
+	$Launchh::HFILE = "empty-ll2.html";
+}
+
+
+my $og_title = "";
+print $Launchh::_query->header();
+print_header(); # &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+print html_terms();
+print_footer();
+
+
+&Launchh::clean_exit();
+
+
+sub html_terms
+{
+    my $str .=<<EOM;
+<style>
+<!--
+ /* Font Definitions */
+ @font-face
+	{font-family:Wingdings;
+	panose-1:5 0 0 0 0 0 0 0 0 0;}
+@font-face
+	{font-family:"MS Mincho";
+	panose-1:2 2 6 9 4 2 5 8 3 4;}
+@font-face
+	{font-family:"Cambria Math";
+	panose-1:2 4 5 3 5 4 6 3 2 4;}
+@font-face
+	{font-family:"Lucida Grande";}
+@font-face
+	{font-family:"\@MS Mincho";
+	panose-1:2 2 6 9 4 2 5 8 3 4;}
+ /* Style Definitions */
+ p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin:0in;
+	margin-bottom:.0001pt;
+	font-size:12.0pt;
+	font-family:"Times New Roman","serif";}
+p.MsoCommentText, li.MsoCommentText, div.MsoCommentText
+	{mso-style-link:"Comment Text Char";
+	margin:0in;
+	margin-bottom:.0001pt;
+	font-size:12.0pt;
+	font-family:"Times New Roman","serif";}
+a:link, span.MsoHyperlink
+	{color:blue;
+	text-decoration:underline;}
+a:visited, span.MsoHyperlinkFollowed
+	{color:purple;
+	text-decoration:underline;}
+p.MsoCommentSubject, li.MsoCommentSubject, div.MsoCommentSubject
+	{mso-style-link:"Comment Subject Char";
+	margin:0in;
+	margin-bottom:.0001pt;
+	font-size:10.0pt;
+	font-family:"Times New Roman","serif";
+	font-weight:bold;}
+p.MsoAcetate, li.MsoAcetate, div.MsoAcetate
+	{mso-style-link:"Balloon Text Char";
+	margin:0in;
+	margin-bottom:.0001pt;
+	font-size:9.0pt;
+	font-family:"Lucida Grande";}
+p.MsoListParagraph, li.MsoListParagraph, div.MsoListParagraph
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.5in;
+	margin-bottom:.0001pt;
+	font-size:12.0pt;
+	font-family:"Times New Roman","serif";}
+p.MsoListParagraphCxSpFirst, li.MsoListParagraphCxSpFirst, div.MsoListParagraphCxSpFirst
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.5in;
+	margin-bottom:.0001pt;
+	font-size:12.0pt;
+	font-family:"Times New Roman","serif";}
+p.MsoListParagraphCxSpMiddle, li.MsoListParagraphCxSpMiddle, div.MsoListParagraphCxSpMiddle
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.5in;
+	margin-bottom:.0001pt;
+	font-size:12.0pt;
+	font-family:"Times New Roman","serif";}
+p.MsoListParagraphCxSpLast, li.MsoListParagraphCxSpLast, div.MsoListParagraphCxSpLast
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.5in;
+	margin-bottom:.0001pt;
+	font-size:12.0pt;
+	font-family:"Times New Roman","serif";}
+span.CommentTextChar
+	{mso-style-name:"Comment Text Char";
+	mso-style-link:"Comment Text";
+	font-family:"Times New Roman","serif";}
+span.CommentSubjectChar
+	{mso-style-name:"Comment Subject Char";
+	mso-style-link:"Comment Subject";
+	font-family:"Times New Roman","serif";
+	font-weight:bold;}
+span.BalloonTextChar
+	{mso-style-name:"Balloon Text Char";
+	mso-style-link:"Balloon Text";
+	font-family:"Lucida Grande";}
+.MsoChpDefault
+	{font-size:12.0pt;}
+@page Section1
+	{size:8.5in 11.0in;
+	margin:1.0in 1.25in 1.0in 1.25in;}
+div.Section1
+	{page:Section1;}
+ /* List Definitions */
+ ol
+	{margin-bottom:0in;}
+ul
+	{margin-bottom:0in;}
+-->
+</style>
+    
+	<div class="section section-faq">
+			<div class="shell">
+				<div class="section-faq-inner">
+					<div class="section-head">
+                                    <h2>Terms and Conditions</h2>
+
+                                    <p>Sivi Corporation (“<b>LaunchLeader</b>”)</p>
+					</div><!-- /.section-head -->
+                    
+					<div class="section-body">
+						<section class="faq-content">
+<p>Effective December 5, 2014</p>
+
+<p>&nbsp;</p>
+
+<p>These Terms of Use govern your
+use of the websites and services (together, the &quot;<b>Services</b>&quot;) of
+Sivi Corporation (&quot;<b>LaunchLeader</b>,&quot;&quot;<b>we</b>,&quot; or &quot;<b>us</b>&quot;), a Delaware corporation.
+By using the Services, you agree to be bound by these Terms of Use, our <a
+href="/privacy" target="_blank"><span style='color:windowtext;
+text-decoration:none'>Privacy Policy</span></a>, all applicable laws and all
+conditions or policies referenced here (collectively, the &quot;<b>Terms</b>&quot;).
+LaunchLeader may amend the Terms at any time by posting a revised version of
+the Terms on our website. Your access to or continued use of the Services after
+the effective date of the revised Terms constitutes your acceptance of the
+revised Terms.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Definitions</b></p>
+
+<p><b>&nbsp;</b></p>
+
+<p>In these Terms, we refer to
+those raising funds as &quot;<b>Campaign Owners</b>&quot; and to their
+fundraising campaigns as &quot;<b>Campaigns</b>.&quot; We refer to those
+contributing funds as &quot;<b>Contributors</b>&quot; and to the funds they
+contribute as &quot;Contributions.&quot; Campaign Owners, Contributors and
+other visitors to the Services are referred to collectively as &quot;<b>Users</b>.&quot;</p>
+
+<p><b>&nbsp;</b></p>
+
+<p><b>LaunchLeader is a Platform</b></p>
+
+<p><b>&nbsp;</b></p>
+
+<p>LaunchLeader is an online micro-crowdfunding
+platform for people and entities seeking to raise funds for their own minimum
+viable product (“<b>MVP</b>”) and to contribute to the Campaigns of others. LaunchLeader
+makes no representations about the quality, safety, morality or legality of any
+Campaign, gifts or rewards in the form of tangible items or intangible services
+(collectively, &quot;<b>Offers</b>&quot;), or Contribution or the truth or
+accuracy of your User Content (as defined below) posted on the Services. LaunchLeader
+does not represent that Campaign Owners will deliver Offers or that
+Contributions will be used as described in the Campaign. Users use the Services
+at their own risk.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Eligibility to Use the
+Service</b></p>
+
+<p>&nbsp;</p>
+
+<p>You are not eligible to use the
+Services without consent if you are under 18 years of age. If you are between
+the ages of 13 and 17, you can use the Services with the consent and
+supervision of your parent or legal guardian who is at least 18 years old,
+provided that your parent or legal guardian also agrees to be bound by the
+Terms and agrees to be responsible for your use of the Services. You are not
+eligible to use the Services if you have previously been suspended from using
+the Services for any reason and we have not explicitly authorized you to resume
+using the Services. We reserve the right to refuse use of the Services to
+anyone and to reject, cancel, interrupt, remove or suspend any Campaign, Contribution,
+or the Services at any time for any reason without liability.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Prohibited Campaigns</b></p>
+
+<p>&nbsp;</p>
+
+<p>Campaign Owners are not
+permitted to create a Campaign to raise funds for illegal activities, to cause
+harm to people or property or animals, or to scam others.Campaign Owners are
+not permitted to create a Campaign that has any association with pornography.  Please
+do not post any Campaign you know to beimpossible or phony. You must comply
+with all applicable laws and regulations in connection with your Campaign, including
+using Contributions.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Not Allowed on
+www.launchleader.com</b></p>
+
+<p>&nbsp;</p>
+
+<p>To report a campaign that you
+believe violates the guidelines below, please contact us at <a
+href="mailto:support\@launchleader.com">support\@launchleader.com</a>. 
+Alternatively, you can click on the “Report Violation” button on your profile
+page.</p>
+
+<p>&nbsp;</p>
+
+<p>Sexually explicit material</p>
+
+<p>Sexually suggestive material</p>
+
+<p>Adult services or products</p>
+
+<p>Pornography of any kind</p>
+
+<p>Material relating to adult
+industry</p>
+
+<p>Campaigns in defense of formal
+charges of heinous crimes, including violent, hateful, or sexual acts</p>
+
+<p>Content associated with hate
+groups or terrorist organizations</p>
+
+<p>Campaigns including inflammatory
+or accusatory statements</p>
+
+<p>Underage consumption or abuse of
+alcohol, tobacco, or narcotics</p>
+
+<p>Drug abuse, products or
+paraphernalia</p>
+
+<p>The purchase of marijuana, legal
+or otherwise</p>
+
+<p>Offering equity or
+return-on-investment</p>
+
+<p>Pyramid or ponzi schemes,
+&quot;get rich quick&quot; schemes</p>
+
+<p>Purchases of annuities,
+investments, equity or lottery contracts</p>
+
+<p>Offshore banking or currency
+exchanges</p>
+
+<p>Betting, gambling, raffles, or
+sweepstakes</p>
+
+<p>Exchange of unrecognized or
+crypto-currencies</p>
+
+<p>Offering monetary rewards,
+including gift cards</p>
+
+<p>Non-medical or violent bodily
+mutilation</p>
+
+<p>Non-prescribed drug use or
+purchase</p>
+
+<p>Graphic content of injuries or
+procedures</p>
+
+<p>Procedures conducted outside of
+an accredited medical institution</p>
+
+<p>Directly funding an abortion
+(human or animal)</p>
+
+<p>The purchase, transfer or
+production of non-FDA approved ingestible or consumable products and services</p>
+
+<p>Hurtful or hateful language</p>
+
+<p>Violent or hateful material</p>
+
+<p>Materials including bigotry,
+racism, sexism, or profanity</p>
+
+<p>Supporting or inciting
+treasonous behavior</p>
+
+<p>False, misleading, dishonest
+statements</p>
+
+<p>Blood, gore, graphic material</p>
+
+<p>Sorcery, unexplained sciences or
+absurd claims</p>
+
+<p>Funding or planning an
+assassination, suicide, or assisted suicide</p>
+
+<p>Ending the life of an animal</p>
+
+<p>The purchase, transfer, or
+exchange of weapons of any kind including guns, knives, explosives and
+ammunition</p>
+
+<p>Campaigns in support of rebel
+groups, militias, gangs, or any organized violence</p>
+
+<p>&nbsp;</p>
+
+<p>While these guidelines may not cover every unique scenario, LaunchLeaderwill
+always review questionable campaigns on a case-by-case basis and will take
+appropriate action where necessary. </p>
+
+<p>&nbsp;</p>
+
+<p><b>&nbsp;</b></p>
+
+<p><b>Donations</b></p>
+
+<p>&nbsp;</p>
+
+<p>Funding contributions are
+strictly donation-based and LaunchLeader will not be involved with Campaign
+Owners Offers.  Regardless, Campaign Owners are not permitted to offer:</p>
+
+<p style='margin-left:.5in;text-indent:-.5in;text-autospace:
+none'><span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span>&nbsp;</p>
+
+<ul style='margin-top:0in' type=disc>
+ <li >any form of
+     &quot;security&quot; (as such term is defined in the Securities Act of
+     1933) ;</li>
+ <li >any form of financial
+     incentive or participation in any profit sharing;</li>
+ <li >any alcoholic consumer
+     products (vouchers or memberships offering physical delivery of alcoholic
+     consumer products are permitted);</li>
+ <li >any controlled substance or
+     drug paraphernalia;</li>
+  <li>any weapons, ammunition and related accessories;</li>
+ <li >any form of lottery or
+     gambling;</li>
+ <li >any form of air
+     transportation;</li>
+ <li >any items promoting hate,
+     discrimination, personal injury, death, damage, or destruction to
+     property; or</li>
+ <li >any items (a) prohibited by
+     applicable law to possess or distribute, (b) that would violate applicable
+     law if distributed, or (c) that would result in infringement or violation
+     of another person's rights if distributed.</li>
+</ul>
+
+<p>&nbsp;</p>
+
+<p><b>Community Guidelines</b></p>
+
+<p>&nbsp;</p>
+
+<p>LaunchLeader is not a place for
+hatred, abuse, discrimination, disrespect, profanity, meanness, harassment, or
+spam. <u>Do not</u>:</p>
+
+<p>&nbsp;</p>
+
+
+<ul style='margin-top:0in' type=disc>
+<li>use the Services to promote violence, degradation, subjugation,
+discrimination or hatred against individuals or groups based on race, ethnic
+origin, religion, disability, gender, age, veteran status, sexual orientation, or
+gender identity;</li>
+
+<li>post images or videos that are sexually explicit or post links to
+sites that contain sexually explicit material or show people or animals being
+hurt or degraded;</li>
+
+<li>spam the comments sections or other Users with offers of goods
+and services or inappropriate messages;</p>
+
+<li>engage in any activity that interferes with or disrupts the
+proper working of the Services or any activities conducted on the Services; or</li>
+
+<li>take any action that imposes, in LaunchLeader’s sole discretion,
+an unreasonable load on LaunchLeader's infrastructure.</li>
+
+<p>&nbsp;</p>
+
+<p>We reserve the right to remove
+Campaigns and terminate User accounts for such activities.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Disputes between Campaign
+Owners and Contributors</b></p>
+
+<p><b>&nbsp;</b></p>
+
+<p>If a dispute arises between the
+Campaign Owner and Contributors, the Campaign Owner will work with the
+Contributors to reach a mutually satisfactory resolution. LaunchLeader is under
+no obligation to become involved in disputes between Campaign Owners and
+Contributors, or Users and any third party. In the event of any dispute, such
+as a Campaign Owner's alleged failure to comply with the Terms, we may provide
+the Campaign Owner's contact information to the Contributor so that the two
+parties may resolve their dispute.</p>
+
+<p>&nbsp;</p>
+
+<p><b>User Account Information</b></p>
+
+<p>&nbsp;</p>
+
+<p>All User registration
+information must be accurate and truthful. Users agree to notify LaunchLeader
+immediately if you discover that your User account has been used without your
+authorization or there has been any other breach of your User account's security.
+Each User also agrees to provide additional information LaunchLeader may
+reasonably request and to answer truthfully and completely any questions LaunchLeader
+might ask you in order to verify such User's identity.</p>
+
+<p>&nbsp;</p>
+
+<p><b>License to Users</b></p>
+
+<p>&nbsp;</p>
+
+<p>LaunchLeader grants each User a
+limited, non-exclusive, non-transferable, revocable license to use the Services
+subject to such User's eligibility and continued compliance with these Terms.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Campaign Owners</b></p>
+
+<p>&nbsp;</p>
+
+<p>Campaign Owners will respond
+promptly and truthfully to all questions posed to them by LaunchLeader or any
+Contributor. Campaign Owners will comply with all applicable laws and
+regulations in the use of Contributions. Campaign Owners are responsible for
+collecting and remitting any taxes on Contributions. LaunchLeader may attempt
+to verify the identity and other information provided to us by Campaign Owners,
+and we may delay, withhold, reverse or refund any Contributions or other
+amounts without notice or liability in the event we are unable to verify any
+such information to our satisfaction.  Campaign Owners may only have one active
+campaign at a time per creator.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Contributors</b></p>
+
+<p>&nbsp;</p>
+
+<p>As a Contributor, you are solely
+responsible for asking questions and investigating Campaign Owners and
+Campaigns to the extent you feel is necessary before you make a Contribution.
+All Contributions are made voluntarily and at your sole discretion and risk. LaunchLeader
+doesn't guarantee that Contributions will be used as promisedor that the
+Campaign will achieve its goals. LaunchLeader does not endorse, guarantee, make
+representations, or provide warranties for or about the quality, safety,
+morality or legality of any Campaign or Contribution, or the truth or accuracy
+of User Content posted on the Services. Contributors are solely responsible for
+determining how to treat their Contributions for tax purposes. </p>
+
+<p><b>&nbsp;</b></p>
+
+<p><b>Fees and Payments</b></p>
+
+<p>&nbsp;</p>
+
+<p>Setting up an account on the
+Services is free. We do not charge fees to Contributors, but we do charge fees
+to Campaign Owners as a portion of the funds they raise. </p>
+
+<p>&nbsp;</p>
+
+<p>LaunchLeader charges a 5%
+commission on all contributions.  Stripe charges an additional fee of 2.4% AND
+20p per transaction. Read Stripe's <a href="https://stripe.com/gb/terms" target="_blank"><b>Terms
+&amp; Conditions</b></a>.</p>
+
+<p>&nbsp;</p>
+
+<p>Changes to fees are effective
+after we post notice of the changes on the Services. Updated fees are applied
+to Campaigns launched after the notice is posted. Users are responsible for
+paying all taxes associated with their use of the Services. All contributions are
+made via Stripe. LaunchLeader is not responsible for the performance of Stripe
+or any third party credit card processing services.</p>
+
+<p><b>&nbsp;</b></p>
+
+<p><b>Refunds</b></p>
+
+<p>&nbsp;</p>
+
+<p>Contributions, along with LaunchLeader's
+fees and charges, are not refundable. If a Campaign Owner is unable to perform
+on any promise and/or commitment to Contributors, the Campaign Owner will work
+with the Contributors to reach a mutually satisfactory resolution, which may
+include the issuance of a refund of Contributions by the Campaign Owner.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Taxes</b></p>
+
+<p>&nbsp;</p>
+
+<p>Taxing authorities may classify
+funds raised on LaunchLeader as taxable income to the Campaign Owner and any
+beneficiary who will receive funds directly from the applicable Campaign. We
+will ask for the tax identification number (TIN) of Campaign Owners and any
+beneficiaries so that we may report taxable income to the relevant taxing
+authorities. We will provide Campaign Owners with a tax document if required by
+the relevant taxing authorities. We encourage Campaign Owners to consult with a
+licensed tax advisor from their local jurisdiction when planning their
+Campaigns to understand and prepare for the tax obligations associated with
+funds raised on LaunchLeader.</p>
+
+<p><b>&nbsp;</b></p>
+
+<p><b>User Content</b></p>
+
+<p>&nbsp;</p>
+
+<p>While using the Services, Users
+may post photos, videos, text, graphics, logos artwork and other audio or
+visual materials (collectively, &quot;<b>User Content</b>&quot;). Users grant LaunchLeader
+a perpetual, non-exclusive, royalty-free, transferable, sublicensable,
+worldwide license to use, publicly display, publicly perform, store, reproduce,
+modify, create derivative works, and distribute User Content of any User on or
+in connection with the Services and our related marketing and promotional
+activities. As between Users and LaunchLeader, Users continue to hold all
+ownership interest in their User Content. Each User represents and warrants
+that its User Content and our use of such User Content will not infringe any
+third party's intellectual property rights, proprietary rights, privacy rights,
+confidentiality, rights of publicity or otherwise violate these Terms or
+applicable law.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Promotions</b></p>
+
+<p>&nbsp;</p>
+
+<p>Campaign Owners may not offer
+any contest, competition, giveaway, sweepstakes or similar activity (each, a
+&quot;<b>Promotion</b>&quot;) on the Services without LaunchLeader's prior
+written permission (which may be granted or withheld by LaunchLeader in its
+sole and absolute discretion). Campaign Owners may request permission from LaunchLeader
+by sending an email to promotions\@lauchleader.com. Subject to and upon any such
+permission, each Campaign Owner offering any Promotion further acknowledges and
+agrees that: (a) such Campaign Owner shall be solely responsible for all facets
+of each such Promotion; (b) such Promotion does not require any Contribution or
+other payment of any amount as the sole method of entry into such Promotion;
+and (c) the official rules for such Promotion shall include clear and
+conspicuous language to the effect that: (i) LaunchLeader does not sponsor,
+endorse or administer the Promotion; (ii) each participant or entrant in the
+Promotion releases LaunchLeader from any and all liability; and (iii) all questions
+concerning the Promotion must be directed to the Campaign Owner and not to LaunchLeader.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Third-Party Websites,
+Advertisers or Services</b></p>
+
+<p>&nbsp;</p>
+
+<p>The Services may contain links
+to third-party websites, advertisers, or services that are not owned or controlled
+by LaunchLeader. Access to or use of third-party sites or services are at your
+own risk. Except as otherwise expressly provided herein, LaunchLeader is not
+responsible for any loss or damage of any sort relating to User dealings with
+these third-party sites or services. We encourage Users to be aware of when
+they leave the Services, and to read the terms and conditions and privacy
+policy of any third-party website or service that they visit.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Stripe</b></p>
+
+<p>&nbsp;</p>
+
+<p>Campaigner Owners that accept Stripe
+and Contributors that use Stripe agree to comply with the <a
+href="https://stripe.com/gb/terms" target="_blank">Stripe Acceptable Use Policy</a>.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Indemnity</b></p>
+
+<p>&nbsp;</p>
+
+<p>Each User agrees to defend,
+indemnify and hold harmless LaunchLeader, its subsidiaries and affiliated
+companies, and their officers, directors, employees, contractors and agents
+from and against any and all claims, causes of action, damages, obligations,
+losses, liabilities, costs or debt, and expenses (including attorneys' fees and
+costs) and all amounts paid in settlement arising from or relating to use of
+the Services, breach of these Terms or violation of any laws. LaunchLeader may
+assume the exclusive defense and control of any matter for which Users have
+agreed to indemnify LaunchLeader and each User agrees to assist and cooperate
+with LaunchLeader in the defense or settlement of any such matters.</p>
+
+<p>&nbsp;</p>
+
+<p><b>No Warranty</b></p>
+
+<p>&nbsp;</p>
+
+<p>LaunchLeader has no fiduciary
+duty to you. </p>
+
+<p>&nbsp;</p>
+
+<p>THE SERVICES ARE PROVIDED ON AN
+&quot;AS IS&quot; AND &quot;AS AVAILABLE&quot; BASIS WITHOUT ANY WARRANTIES,
+EXPRESS OR IMPLIED, INCLUDING, WITHOUT LIMITATION, IMPLIED WARRANTIES OF
+MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, NONINFRINGEMENT OR COURSE
+OF PERFORMANCE. USE OF THE SERVICES IS AT USER'S OWN RISK.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Waiver and Release</b></p>
+
+<p>&nbsp;</p>
+
+<p>For Users in a jurisdiction that
+requires a specific statement regarding waiver and release then the following
+applies. For example, California residents must, as a condition of this
+Agreement, waive the applicability of California Civil Code Section 1542 for
+unknown claims which states: </p>
+
+<p>&nbsp;</p>
+
+&quot;A GENERAL RELEASE DOES NOT EXTEND TO CLAIMS WHICH THE
+CREDITOR DOES NOT KNOW OR SUSPECT TO EXIST IN HIS OR HER FAVOR AT THE TIME OF
+EXECUTING THE RELEASE, WHICH IF KNOWN BY HIM OR HER MUST HAVE MATERIALLY
+AFFECTED HIS OR HER SETTLEMENT WITH THE DEBTOR.&quot; 
+
+<p>&nbsp;</p>
+
+<p>Each User hereby waives this
+section of the California Civil Code and any similar provision in law,
+regulation or code that has the same effect or intent as the foregoing release.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Limitation of Liability</b></p>
+
+<p>&nbsp;</p>
+
+<p>LAUNCHLEADER (INCLUDING ITS
+AFFILIATES, DIRECTORS, OFFICERS, EMPLOYEES, AGENTS, SUBCONTRACTORS OR
+LICENSORS) IS NOT LIABLE FOR ANY INDIRECT, PUNITIVE, INCIDENTAL, SPECIAL,
+CONSEQUENTIAL OR EXEMPLARY DAMAGES OR, IN ANY EVENT, FOR DAMAGES EXCEEDING THE
+LESSER OF ONE HUNDRED U.S. DOLLARS ($100.00) OR THE FEES PAID TO LAUNCHLEADER
+FOR THE TRANSACTION FROM WHICH THE CAUSE OF ACTION AROSE. THIS LIMITATION OF
+LIABILITY SECTION APPLIES WHETHER THE ALLEGED LIABILITY IS BASED ON CONTRACT,
+TORT, NEGLIGENCE, STRICT LIABILITY, OR ANY OTHER BASIS, EVEN IF LAUNCHLEADER
+HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE AND TO THE FULLEST EXTENT
+PERMITTED BY LAW IN THE APPLICABLE JURISDICTION.</p>
+
+<p>&nbsp;</p>
+
+<p>For jurisdictions that do not
+allow LaunchLeader to limit its liability: Notwithstanding any provision of the
+Terms, for Users in a jurisdiction that has provisions specific to waiver or
+liability that conflict with the foregoing, then LaunchLeader's liability is
+limited to the smallest extent possible by law. Specifically, in those
+jurisdictions not allowed, LaunchLeader does not disclaim liability for: (a)
+death or personal injury caused by its negligence or that of any of its
+officers, employees or agents; or (b) fraudulent misrepresentation or
+intentional misconduct; or (c) any liability which it is not lawful to exclude
+either now or in the future.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Assignment</b></p>
+
+<p>&nbsp;</p>
+
+<p>The Terms, and any rights and
+licenses granted hereunder, may not be transferred or assigned by any User, but
+may be assigned by LaunchLeader without restriction or consent.</p>
+
+<p><b>&nbsp;</b></p>
+
+<p><b>Termination; Survival</b></p>
+
+<p>&nbsp;</p>
+
+<p>Termination may result in the
+forfeiture and destruction of all information associated with any User Account.
+Users may terminate their User Account by following the instructions on the
+Services, but LaunchLeader may retain the User Account information after
+termination in accordance with regulatory, accounting, and legal compliance
+procedures. All provisions of the Terms that by their nature should survive
+termination shall survive termination, including, without limitation, ownership
+provisions, warranty disclaimers, indemnity and limitations of liability.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Governing Law</b></p>
+
+<p>&nbsp;</p>
+
+<p>Users agree that: (i) the
+Services shall be deemed solely based in New York (the principal place of
+business and corporate headquarters of LaunchLeader); and (ii) the Services shall
+be deemed a passive one that does not give rise to personal jurisdiction over LaunchLeader,
+either specific or general, in jurisdictions other than New York. This
+Agreement shall be governed by the laws of the State of New York, without
+respect to its conflict of laws principles.</p>
+
+<p><b>&nbsp;</b></p>
+
+<p><b>Arbitration</b></p>
+
+<p>&nbsp;</p>
+
+<p>Each User
+agrees that any and all disputes or claims that have arisen or may arise
+between such User and LaunchLeader relating in any way to or arising out of
+this or previous versions of the Terms or your use of or access to the Services
+shall be resolved exclusively through final and binding arbitration, rather
+than in court, except that such User may assert claims in small claims court,
+if such User claims qualify. The Federal Arbitration Act governs the
+interpretation and enforcement of this agreement to arbitrate. There is no
+judge or jury in arbitration, and court review of an arbitration award is
+limited. However, an arbitrator can award on an individual basis the same
+damages and relief as a court (including injunctive and declaratory relief or
+statutory damages), and must follow the provisions of the Terms as a court
+would. To begin an arbitration proceeding, a User must send a letter requesting
+arbitration and describing the claim to our registered agent,Harvard Business
+Services, 16192 Coastal Highway, Lewes, Delaware 19958, Attention: Sivi Corp.</p>
+
+<p>&nbsp;</p>
+
+<p>The arbitration will be
+conducted by the American Arbitration Association (AAA) under its rules,
+including the AAA's Supplementary Procedures for Consumer-Related Disputes. The
+AAA's rules are available at www.adr.org or by calling 1-800-778-7879. Payment
+of all filing, administration and arbitrator fees will be governed by the AAA's
+rules. LaunchLeader will reimburse those fees for claims totaling less than
+$10,000 unless the arbitrator determines the claims are frivolous. A User may
+choose to have the arbitration conducted by telephone, based on written
+submissions, or in person in the county where such User lives or at another
+mutually agreed location. Users agree that any dispute resolution proceedings
+will be conducted only on an individual basis and not in a class, consolidated
+or representative action. If for any reason a claim proceeds in court rather
+than in arbitration, such User waive any right to a jury trial. User and LaunchLeader
+also both agree that either may bring suit in court to enjoin infringement or
+other misuse of intellectual property rights. If for any reason, a claim
+proceeds in court rather than in arbitration, the dispute shall be exclusively
+brought in a court of competent jurisdiction located in the City and County of New
+York, New York. Subject to the arbitration provisions set forth above, the successful
+party in any dispute will be entitled to receive from the unsuccessful party
+all of its reasonable attorneys’ fees, cost, and disbursements.</p>
+
+<p><b>&nbsp;</b></p>
+
+<p><b>Disclaimer</b></p>
+
+<p>&nbsp;</p>
+
+<p>Campaign Owners and other Users
+should be aware that many states impose charitable fund solicitation laws to
+guide direct or indirect fund solicitation activities in those states. While
+provisions vary state to state, these state laws typically include registration
+and reporting requirements. LaunchLeader merely provides a technology platform
+to allow Campaign Owners to connect with Contributors. Users who access or use
+the Services do so at their own volition and are entirely responsible for
+compliance with applicable law. Unless otherwise explicitly stated, all
+materials found on the Services are solely directed to individuals, companies,
+or other entities located in the U.S.</p>
+
+<p><b>&nbsp;</b></p>
+
+<p><b>English Language</b></p>
+
+<p>&nbsp;</p>
+
+<p>In the event of a conflict
+between these the English language version of the Terms and any foreign
+language translation versions thereof, the English language version of the
+Terms shall govern and control. All disputes, claims and causes of action (and
+related proceedings) will be communicated in English.</p>
+
+<p><b>&nbsp;</b></p>
+
+<p><b>Export Compliance</b></p>
+
+<p>&nbsp;</p>
+
+<p>Users agree to comply with all
+laws, restrictions and regulations relating to the export of products and
+information. For purposes of the U.S. Export Administration Act (&quot;<b>Export
+Laws</b>&quot;), each User states that such User is: (a) not a citizen, or
+otherwise located within, an embargoed nation (including without limitation the
+Office of Foreign Assets Control (&quot;<b>OFAC</b>&quot;) comprehensively
+embargoed countries of Iran, Syria, Cuba, North Korea and Sudan and certain
+Specially Designated Nationals listed by OFAC as updated from time to time and
+(b) not otherwise prohibited under the Export Laws from receiving such products
+and information. Funds may be frozen and/or turned over to the applicable
+governmental enforcement agency if a Campaign is deemed to be in violation of
+Export Laws.</p>
+
+<p><b>&nbsp;</b></p>
+
+<p><b>Cooperation with Authorities
+and Police Enforcement</b></p>
+
+<p>&nbsp;</p>
+
+<p>We will cooperate with law
+enforcement authorities as required by law. We will cooperate with law
+enforcement agencies in any investigation of alleged illegal activity regarding
+the use of the Services when requested.</p>
+
+<p><b>&nbsp;</b></p>
+
+<p><b>Notification Procedures</b></p>
+
+<p>&nbsp;</p>
+
+<p>Users agree LaunchLeader may provide
+notifications to such User via email, written or hard copy notice, or through
+conspicuous posting of such notice on our website. Users may opt out of certain
+means of notification or to receive certain notifications.</p>
+
+<p><b>&nbsp;</b></p>
+
+<p><b>Unsolicited Idea Submissions</b></p>
+
+<p>&nbsp;</p>
+
+<p>Consistent with our culture of
+open innovation, we are always pleased to hear from our user community and
+welcome comments or suggestions to improve the Services. However, to avoid
+future misunderstandings when new products, services and features developed internally
+by LaunchLeader might be similar or even identical to a submission received by LaunchLeader,
+the following policy applies to all third party User submissions to LaunchLeader
+of ideas, comments, suggestions, proposals or materials: (a) all submissions
+shall be considered non-confidential and non-proprietary; (b) LaunchLeader will
+have no obligation concerning the submission, contractual or otherwise
+(including, without limitation, confidentiality); (c) LaunchLeader will not be
+liable for any use or disclosure of any submission; and (d) LaunchLeader shall
+be entitled to unrestricted use of the submission for any purpose whatsoever,
+commercial or otherwise, without compensation to the third party submitting
+User.</p>
+
+<p><b>&nbsp;</b></p>
+
+<p><b>Entire Agreement/Severability</b></p>
+
+<p>&nbsp;</p>
+
+<p>These Terms are the entire
+agreement between each User and LaunchLeader regarding its subject matter. If
+any provision of these Terms are deemed invalid by a court of competent
+jurisdiction, the invalidity of such provision shall not affect the validity of
+the remaining provisions of this Agreement, which shall remain in full force
+and effect. LaunchLeader's failure to assert any right or provision under this
+Agreement shall not constitute a waiver of such right or provision.</p>
+
+<p><b>&nbsp;</b></p>
+
+<p><b>Changes to Terms</b></p>
+
+<p>&nbsp;</p>
+
+<p>LaunchLeader may alter the Terms
+at any time, so please review them frequently. If a material change is made, LaunchLeader
+may notify you in the Services, by email, by means of a notice on the Services,
+or other places we think appropriate. A &quot;material change&quot; will be determined
+at LaunchLeader's sole discretion, in good faith, and using common sense and
+reasonable judgment.</p>
+
+<p><b>&nbsp;</b></p>
+
+<p><b>DMCA Notice and Complaint of
+Intellectual Property Infringement</b></p>
+
+<p>&nbsp;</p>
+
+<p>If you believe that your
+copyrighted work has been copied in a way that constitutes copyright
+infringement under the Digital Millennium Copyright Act of 1998 (&quot;<b>DMCA</b>&quot;)
+or that any User Content infringes your intellectual property rights and is
+accessible via the Services or in connection with our promotion of the
+Services, please notify LaunchLeader's Legal Department at copyright\@launchleader.com.
+&quot;Infringement&quot; means the unauthorized or not permitted use of
+copyrighted material or other intellectual property rights. For your complaint
+to be valid, you must provide the following information in writing (&quot;<b>Notice
+of Infringement</b>&quot;):</p>
+
+<p style='margin-left:.5in;text-indent:-.5in;text-autospace:
+none'><span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span>&nbsp;</p>
+
+<ul style='margin-top:0in' type=disc>
+<li>A physical or electronic signature of a person authorized to act
+on behalf of the owner of an exclusive right that is allegedly infringed
+(&quot;Complainant&quot;).</li>
+ <li >Identification of the
+     copyrighted work claimed to have been infringed, or, if multiple
+     copyrighted works at a single online website are covered by a single
+     notification, a representative list of such works at that website.</li>
+ <li >Identification of the material
+     that is claimed to be infringing or to be the subject of infringing
+     activity and that is to be removed or access to which is to be disabled,
+     and information reasonably sufficient to permit LaunchLeader to locate the
+     material.</li>
+ <li >Information reasonably
+     sufficient to permit LaunchLeader to contact the Complainant, such as an
+     address, telephone number, and, if available, an electronic mail address
+     at which the Complainant may be contacted.</li>
+ <li >A statement that the
+     Complainant has a good faith belief that use of the material in the manner
+     complained of is not authorized by the copyright owner, its agent, or the
+     law.</li>
+ <li >A statement that the
+     information in the notification is accurate, and under penalty of perjury,
+     that the Complainant is authorized to act on behalf of the owner of an
+     exclusive right that is allegedly infringed.</li>
+</ul>
+
+<p>&nbsp;</p>
+
+<p>The above information must be
+submitted to our DMCA Agent (&quot;Designated Agent&quot;) by mail and email to
+the following addresses:</p>
+
+<p>&nbsp;</p>
+
+<p>Re:  LaunchLeader</p>
+
+<p>SIVI Corporation</p>
+
+<p>419 Lafayette</p>
+<p>St, 6th Floor</p>
+
+<p>New York, NY 10003</p>
+</p>
+
+<p>Email: <a
+href="mailto:copyright\@launchleader.com" target="_blank"><span style='color:windowtext;text-decoration:
+none'>copyright\@launchleader.com</span></a></p>
+
+<p>&nbsp;</p>
+
+<p>&nbsp;</p>
+
+<p>UNDER FEDERAL LAW, IF YOU
+KNOWINGLY MISREPRESENT THAT ONLINE MATERIAL IS INFRINGING, YOU MAY BE SUBJECT
+TO CRIMINAL PROSECUTION FOR PERJURY AND CIVIL PENALTIES, INCLUDING MONETARY
+DAMAGES, COURT COSTS, AND ATTORNEYS' FEES.</p>
+
+<p>If you believe that your
+material has been removed or disabled by mistake or misidentification, you may
+file a written counter-notice with the Designated Agent, including the
+following information (&quot;Counter-Notice&quot;) within 5 business days from
+your receipt of the Notice of Infringement:</p>
+
+<p style='margin-left:0in;text-indent:0in;text-autospace:none'><span
+style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span>&nbsp;</p>
+
+<ul style='margin-top:0in' type=disc>
+<li>a physical or electronic signature of the owner or authorized
+user of material;</li>
+
+<li>identification of the material that has been removed or to which
+access has been disabled and the location at which the material appeared before
+it was removed or access to it was disabled;</li>
+
+<li>a statement made under penalty of perjury that you have a good
+faith belief that the material was removed or disabled as a result of mistake
+or misidentification of the material; and</li>
+
+<li>your name, address, telephone number, and a statement that you
+consent to the jurisdiction of the Federal District Court for the judicial
+district in which the address is located, or if your address is outside of the
+United States, for any judicial district in which the service provider may be
+found, and that you will accept service of process from the Complainant or an
+agent of such person.</li>
+</ul>
+<p>&nbsp;</p>
+
+<p>Upon receipt of the
+Counter-Notice by the Designated Agent, a copy of the Counter-Notice may be sent
+to the Complainant informing the Complainant that LaunchLeader, at its
+discretion, may replace the removed material or cease disabling it in not less
+than 10, nor more than 14, business days following receipt of the
+Counter-Notice, unless the Designated Agent receives written notice from the
+Complainant that the Complainant has filed an action seeking a court order to
+restrain you from engaging in infringing activity relating to your unauthorized
+use of the material on the Service.</p>
+
+<p>&nbsp;</p>
+
+<p>If you fail to provide required
+information or follow this process, your Notice of Infringement or
+Counter-Notice is incomplete so no action will be taken. You and the
+Complainant are encouraged to work to an amicable resolution.</p>
+
+<p>&nbsp;</p>
+
+<p>In accordance with the DMCA and
+other applicable laws, LaunchLeader has adopted a policy of terminating, in
+appropriate circumstances and at LaunchLeader's sole discretion, repeat
+infringers.</p>
+
+<p>&nbsp;</p>
+
+<p><b>No Legal Advice</b></p>
+
+<p>&nbsp;</p>
+
+<p>Nothing contained in the Terms
+or the Services constitutes legal advice. If Users have any questions regarding
+their legal rights and legal obligations, Users should consult with their own
+attorney.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Subpoenas</b></p>
+
+<p>All subpoenas must be properly
+served on LaunchLeader, preferably by mailing the subpoena to Harvard Business
+Services, our national registered agent. Please find below the Delaware address
+for 16192 Coastal Highway, in the City of Lewes, County of Sussex, State of
+Delaware 19958:</p>
+
+<p>&nbsp;</p>
+
+<p>16192 Coastal
+Highway</p>
+
+<p>Lewes, Delaware
+19958</p>
+
+<p>Attention: Sivi
+Corp. - Subpoena</p>
+
+<p>&nbsp;</p>
+
+<p>&nbsp;</p>
+
+<p>If you have a subpoena to serve
+on LaunchLeader, please note that LaunchLeader does not accept service via
+e-mail or fax and will not respond to the subpoena.</p>
+
+<p>&nbsp;</p>
+
+<p><b>Contact Us</b></p>
+
+<p>&nbsp;</p>
+
+<p>If you have any questions about
+these Terms, the practices of this site, or your dealings with this Website or complaints,
+please contact us at <a href="mailto:support\@launchleader.com" target="_blank"><span
+style='color:windowtext;text-decoration:none'>support\@launchleader.com</span></a><a
+name="_GoBack"></a> or at SIVI Corporation, 419 Lafayette St, 6<sup>th</sup>
+Floor, New York, NY 10003, Attention or Subject Line: Terms of Use/Legal
+Department.</p>
+
+<p>&nbsp;</p>
+
+<p><span style='text-transform:uppercase'>&nbsp;</span></p>
+
+						</section><!-- /.faq-content -->
+					</div><!-- /.section-body -->
+				</div><!-- /.section-faq-inner -->
+			</div><!-- /.shell -->
+		</div><!-- /.section .section-faq -->
+
+EOM
+
+return $str;
+
+}
+
+
+sub print_header
+{
+   my $header = &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+#$user_header_str = " of ".$Launchh::account->{'account_name_first'} if($Launchh::account->{'account_name_first'} ne '');
+   my $rand = rand(10000);
+
+   $header =~ s/XXXTITLEXXX/USER PROFILE/is;
+   if($Launchh::uid ne ''){
+        $header =~ s/<li class="separator">\s*<a href=".*?login">Login<\/a>/<li class="separator"><a href="..\/logout?pmode=$pmode">Logout<\/a>/is  if($pmode ne '');        
+        $header =~ s/<li class="separator">\s*<a href=".*?login">Login<\/a>/<li class="separator"><a href="..\/logout?$rand">Logout<\/a>/is ;        
+        $header =~ s/DASHBOARDSTR/<li><a href="dashboard">My Dashboard<\/a><\/li>/is;   
+        $header =~ s/SIGNUPSTR//is;
+    }
+    else{
+    	$header =~ s/DASHBOARDSTR//is;
+        if($pmode eq ''){
+            $header =~ s/SIGNUPSTR/<li class="signup"><a href=\"..\/signup\">Sign Up<\/a><\/li>/is;
+        }
+        else{
+            $header =~ s/SIGNUPSTR/<li class="signup"><a href=\"\/signup?pmode=$pmode\">Sign Up<\/a><\/li>/is;
+        }
+    }
+   
+    if( $pmode ne '' && !defined $session->param("pmode") ){
+        $header =~ s/faq">/faq\?pmode=$pmode">/is;   
+        $header =~ s/login">/login\?pmode=$pmode">/is;   
+        $header =~ s/discover">/discover\?pmode=$pmode">/is;   
+        $header =~ s/privacy"/privacy\?pmode=$pmode"/is;   
+        $header =~ s/terms"/terms\?pmode=$pmode"/is;   
+        $header =~ s/SIGNUPSTR/<li class="signup"><a href=\"..\/signup?pmode=$pmode\">Sign Up<\/a><\/li>/is;                
+    }
+   
+   $header =~ s/TITLE_FOR_SOCIAL_SITE/$og_title/gs;
+   
+   my $headerold .= << "EOM";
+
+		<aside class="sidebar">
+			<ul class="widgets">
+				<li class="widget widget-nav">
+					<ul>
+						<li>
+							<a href="/dash?$Launchh::HSTR">
+								<i class="icon-desktop"></i> Dashboard
+							</a>
+						</li>
+		
+						<li class="current">
+							<a href="/account?$Launchh::HSTR">
+								<i class="icon-app"></i> Profile
+							</a>
+						</li>
+		
+						<li>
+							<a href="/inbox?$Launchh::HSTR">
+								<i class="icon-mail"></i> Inbox 
+							</a>
+		
+							<!--ul>
+								<li>
+									<a href="/inbox?$Launchh::HSTR">
+										<i class="icon-mail-arrow-down"></i> Inbox
+									</a>
+								</li>
+		
+								<li>
+									<a href="/inbox?$Launchh::HSTR">
+										<i class="icon-mail-arrow-up"></i> Sent
+									</a>
+								</li>
+							</ul-->
+						</li>
+					</ul>
+				</li><!-- /.widget widget-nav -->
+			</ul><!-- /.widgets -->
+		</aside><!-- /.sidebar -->
+EOM
+
+   print $header;
+}
+
+
+sub print_footer
+{
+
+   my $footer = &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+
+    if( $pmode ne '' && !defined $session->param("pmode") ){
+    	$footer =~ s/privacy"/privacy\?pmode=$pmode"/is;
+    	$footer =~ s/terms"/terms\?pmode=$pmode"/is;
+    }
+
+    print $footer;
+}

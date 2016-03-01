@@ -1,0 +1,32 @@
+#!/usr/bin/perl
+
+#!D:/TOWORK/bin/xampp/perl/bin/perl.exe
+
+use lib 'cgi-bin';
+use lib 'util';
+use Launchh;
+use CGI::Session;
+
+my $session = new CGI::Session("driver:File", undef, {Directory=>"/tmp"});
+my $cgi = new CGI;
+my $cookie = $cgi->cookie( "CGISESSID", $session->id );
+my $pmode  = $session->param("pmode") if(defined $session->param("pmode"));
+$pmode = $Launchh::_query->param('pmode') if(not defined $pmode or $pmode eq '');
+
+
+print STDERR "uname: ".$session->param("username");
+$session->param("stage","");
+$session->param("mode","");
+$session->param("uid","");
+$session->param("username","");
+$session->clear;
+$session->delete();
+print STDERR "uname: ".$session->param("uname");
+#my $cookie = $cgi->cookie( "CGISESSID", $session->id );
+if($pmode eq '' or $pmode eq 'launchleader'){
+	print "Location: index.html\n\n";
+}
+else{
+	print "Location: /partner/$pmode/\n\n";
+}
+&Launchh::clean_exit();

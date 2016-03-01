@@ -1,0 +1,177 @@
+#!/usr/bin/perl
+
+##!D:/TOWORK/bin/xampp/perl/bin/perl.exe
+
+use lib '../cgi-bin';
+use lib '../util';
+use Launchh;
+use strict;
+use Data::Dumper;
+    
+#$Launchh::HFILE = "empty-ll2.html";
+
+my $username = $Launchh::_query->param('tsu');
+my $tosend = $Launchh::_query->param('tosend') || 0; 
+my $message = $Launchh::_query->param('message'); 
+my $from = $Launchh::_query->param('from'); 
+my $from_email = $Launchh::_query->param('from_email'); 
+
+my $dir_str = "";
+$dir_str = "../" if($from eq 'admin');
+
+#my $message = $Launchh::_query->param('message') ; 
+
+
+$Launchh::u = $Launchh::_query->param('uname');
+
+&Launchh::select_accounts("WHERE account_username='$Launchh::u'");
+&Launchh::next_account();
+
+my $toname = $Launchh::account->{'account_name_first'}. " ". $Launchh::account->{'account_name_last'}; 
+
+print $Launchh::_query->header();
+print html_send_message();
+&Launchh::clean_exit();
+
+sub html_send_message
+{
+
+my $iframe_url = ''; # "http://localhost:8081/launchh/embed?u=$usernabtn-fb-shareme";
+
+my $page_url = 'http://';
+$page_url = "https://" if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off");
+$page_url .= $ENV{SERVER_NAME};
+
+$iframe_url = "$page_url/embed?u=$username";
+
+my $iframe_value = "&lt;iframe src=\"$iframe_url\" width=\"300px\" height=\"441px\" frameborder=\"0\" scrolling=\"no\"&gt;&lt;/iframe&gt;";
+    
+    
+	my $update_str = << "EOM";
+ 
+<div class="embed-popup">
+	<div class="embed-container">
+        <div class="embed-container-row">
+        <div class="embed-container-left">
+            <div class="embed-popup-head">
+            </div><!-- /.embed-popup-head -->
+
+            <div class="embed-popup-body">
+            <p>Embed this banner by copying and pasting the code below into your website or blog.</p>
+            <div class="form form-refer form-message">
+EOM
+
+if($from eq 'admin' ){
+    $update_str .=<<EOM;
+EOM
+}
+
+
+      
+    $update_str .=<<EOM;
+				<div class="form-body">
+					<div class="form-row form-row-alt">
+EOM
+
+if($from ne 'admin' ){
+    $update_str .=<<EOM;
+EOM
+}
+
+$update_str .=<<EOM;
+					</div><!-- /.form-row -->
+
+					<div class="form-row">
+						<div class="form-controls">
+							<textarea  readonly="true" onclick="javascript:this.select();" rows="8" name="message" id="message" class="textarea" placeholder=''>$iframe_value</textarea>
+						</div><!-- /.form-controls -->
+					</div><!-- /.form-row -->
+				</div><!-- /.form-body -->
+		</div><!-- /.form form-refer -->
+        </div><!-- /.embed-popup-body -->
+	</div><!-- /.embed-container-left -->
+    
+    <div class="embed-container-right">
+	        <iframe src="$iframe_url" width="320px" height="441px" frameborder="0" scrolling="no"></iframe>
+    </div><!-- /.embed-container-right -->
+    
+	</div><!-- /.embed-container-row -->
+	</div><!-- /.embed-container -->
+
+</div><!-- /.embed-popup -->
+
+<script>
+            function sendEmail() {
+                // 1. Create XHR instance - Start
+                
+                var xhr;
+                if (window.XMLHttpRequest) {
+                    xhr = new XMLHttpRequest();
+                }
+                
+                else if (window.ActiveXObject) {
+                    xhr = new ActiveXObject("Msxml2.XMLHTTP");
+                }
+                else {
+                    throw new Error("Ajax is not supported by this browser");
+                }
+                
+                // 1. Create XHR instance - End
+                
+                // 2. Define what to do when XHR feed you the response from the server - Start
+                
+                xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                        if (xhr.status == 200 && xhr.status < 300) {
+                            // document.getElementById('loadix').innerHTML = xhr.responseText;
+                            if(xhr.responseText == "success"){
+                                \$('#confirmation').html("<h2><i>Email sent successfully</i></h2>");
+                                \$('#tosend').val(0);
+                            }
+                            else {
+                                \$('#confirmation').html("<h2>Email sending failed</h2>");
+                            }
+                        }
+                    }
+                }
+                // 2. Define what to do when XHR feed you the response from the server - Start
+
+                var message = document.getElementById("message").value;
+                var username = document.getElementById("username").value;
+                var tosend = document.getElementById("tosend").value;
+                var from_email = document.getElementById("from_email").value;
+       
+                var post_str = "message=" + message +"&username=" + username + "&from_email=" + from_email;
+		
+                // 3. Specify your action, location and Send to the server - Start 
+                if(tosend == 1){
+                    xhr.open('POST', '$dir_str'+'ajax/launchmailer');
+                    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                    xhr.send(post_str);
+                }
+                // 3. Specify your action, location and Send to the server - End
+
+	    return false;
+          }
+
+
+</script>
+
+EOM
+		
+
+return $update_str;
+
+}
+
+
+
+sub trim
+{
+    my $str = shift;
+    
+    $str =~ s/^\s+//;
+    $str =~ s/\s+$//;
+    
+    return $str;
+}

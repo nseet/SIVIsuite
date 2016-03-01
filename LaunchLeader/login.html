@@ -1,0 +1,155 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html lang="en-US" xmlns="http://www.w3.org/1999/xhtml" dir="ltr">
+<head>
+	<title>Launch Leader v2</title>
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" />
+	<link rel="shortcut icon" href="css/images/favicon.ico" />
+	<link rel="stylesheet" href="css/fonts.css" type="text/css" media="all" />
+	<link rel="stylesheet" href="css/colorbox.css" type="text/css" media="all" />
+	<link rel="stylesheet" href="css/jquery.fs.selecter.css" type="text/css" media="all" />
+	<link rel="stylesheet" href="css/style.css" type="text/css" media="all" />
+	<script type="text/javascript" src="js/jquery-1.11.0.min.js"></script>
+	<script type="text/javascript" src="js/jquery.carouFredSel-6.2.1.min.js"></script>
+	<script type="text/javascript" src="js/jquery.colorbox.js"></script>
+	<script type="text/javascript" src="js/jquery.fs.selecter.js"></script>
+	<script src="https://www.youtube.com/iframe_api"></script>
+	<script type="text/javascript" src="js/youtube.js"></script>	
+	<script type="text/javascript" src="js/functions.js"></script>
+    
+    <script language="JavaScript">
+    <!--
+    function isValid() {
+     var email=document.login.u.value;
+     if (email.indexOf(' ')==-1 
+          && 0<email.indexOf('@')
+          && email.indexOf('@')+1 < email.length
+     ) return true;
+     else alert ('Please enter your email address and try again')
+     return false;
+    }
+    //-->
+    </script>
+    
+</head>
+<body>
+<div class="wrapper">
+	<div class="header">
+		<div class="shell">
+			<div class="header-inner clearfix">
+				<a href="home.html" class="logo"></a>
+				
+				<a href="#" class="nav-trigger"></a>
+
+				<div class="nav">
+					<ul>
+						<li>
+							<a href="discover">Discover</a>
+						</li>
+
+						<li>
+							<a href="#">Launch</a>
+						</li>
+
+						<li>
+							<a href="#">FAQ</a>
+						</li>
+
+						<li class="separator">
+							<a href="login.html">Login</a>
+						</li>
+
+						<li class="signup">
+							<a href="signup.html">Sign Up</a>
+						</li>				
+					</ul>
+				</div><!-- /.nav -->
+				
+				<div class="nav-access">
+					<ul>
+						<li>
+							<a href="ajax/email-signup.html" class="modal-trigger">Sign Up</a>
+						</li>
+					</ul>
+				</div><!-- /.nav-access -->
+			</div><!-- /.header-inner clearfix -->
+		</div><!-- /.shell -->
+	</div><!-- /.header -->
+
+	<div class="main">
+		<div class="section section-signup">
+			<div class="shell">
+				<div class="section-body">
+                
+					<div class="login">
+						<h3>Already Have An Account?</h3>
+
+						<div class="form form-login">
+                        		 <form name="login" action="./account" target="_parent" method="post">
+                    				<div class="form-body">
+									<div class="form-row">
+		                                          <input id="email" type="text"  name="u" class="field" placeholder="email" />
+									</div><!-- /.form-row -->
+									
+									<div class="form-row">
+										<input type="password" name="p" id="log-pass" class="field" placeholder="password" />
+									</div><!-- /.form-row -->
+								</div><!-- /.form-body -->
+
+								<div class="form-actions">
+								<input type="submit" value="Login" class="form-btn" /> <!-- onClick="return isValid()" -->
+                                        <!-- <button type="submit" class="btn btn-blue btn-small">Login<i class="icon-arrow-white"></i></button> -->
+                                          <p class="reminder"><a href="signup.html">No account?  Join here.</a></p>
+								</div><!-- /.form-actions -->
+							</form>
+						</div><!-- /.form form-login -->
+                       
+					</div><!-- /.login -->
+				</div><!-- /.section-body -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-signup -->
+	</div><!-- /.main -->
+
+<div class="footer">
+		<div class="shell">
+			<div class="footer-inner">
+				<div class="socials">
+					<ul>
+						<li>
+							<a href="#" class="link-twitter">Twitter</a>
+						</li>
+
+						<li>
+							<a href="#" class="link-peace">Peace</a>
+						</li>						
+					</ul>
+				</div><!-- /.socials -->
+
+				<a href="#" class="link-top"></a>
+
+				<p>Questions, comments, suggestions? Contact us at <a href="mailto:info@sivi.com">info@sivi.com</a></p>
+
+				<div class="footer-nav">
+					<ul>
+						<li>
+							<p class="copyright">Copyright &copy; 2014 SIVI. All Rights Reserved.</p><!-- /.copyright -->
+						</li>
+					
+						<li>
+							<a href="#">Privacy Policy</a>
+						</li>
+					
+						<li>
+							<a href="#">Terms and Conditions</a>
+						</li>
+					</ul>
+				</div><!-- /.footer-nav -->
+
+				<a href="#" class="footer-logo"></a>
+			</div><!-- /.footer-inner -->
+		</div><!-- /.shell -->
+	</div><!-- /.footer -->
+</div><!-- /.wrapper -->	
+</body>
+</html>

@@ -1,0 +1,257 @@
+#!/usr/bin/perl
+
+use $u_site_alias;
+use strict;
+
+my $PER_PAGE = 25;
+
+my $stage = $$u_site_alias::_query->param('stage') || 2;
+my $limit = $$u_site_alias::_query->param('limit') || $PER_PAGE;
+$limit =~ s/\W//gis;
+my $offset= $$u_site_alias::_query->param('offset') || 0;
+$offset =~ s/\W//gis;
+my $order_by= $$u_site_alias::_query->param('order_by');
+$order_by =~ s/\W//gis;
+my $order_dir= $$u_site_alias::_query->param('order_dir') || "DESC";
+$order_dir =~ s/\W//gis;
+
+&$u_site_alias::do_check_login();
+&$u_site_alias::select_account($$u_site_alias::uid);
+
+&$u_site_alias::read_$table();
+#&$u_site_alias::select_$table($$u_site_alias::$table_id) if($$u_site_alias::$table_id);
+
+my $WHERE = &$u_site_alias::uri_unescape($$u_site_alias::_query->param('WHERE'))  || get_where();
+my $WHERE_ESC = &$u_site_alias::uri_escape($WHERE);
+
+if($stage == 1)
+{
+   print $$u_site_alias::_query->header();
+   print &$u_site_alias::html_header($$u_site_alias::HFILE);
+   print html_stage1();
+   print &$u_site_alias::html_footer($$u_site_alias::HFILE);
+}
+elsif($stage==2)
+{	
+   print $$u_site_alias::_query->header();
+   print &$u_site_alias::html_header($$u_site_alias::HFILE);
+   print html_stage2();
+   print &$u_site_alias::html_footer($$u_site_alias::HFILE);
+}
+
+&$u_site_alias::clean_exit();
+
+
+sub html_stage1
+{
+my $str = << "EOM";
+<TABLE WIDTH="$$u_site_alias::TABLE_WIDTH" BORDER="0">
+   <TR>
+        <TD>
+        <FONT FACE="$$u_site_alias::FONT" SIZE="$$u_site_alias::SIZE">
+        Search \u$table:
+        </FONT>
+        </TD>
+   </TR>
+   <TR>
+        <TD>
+        <FONT FACE="$$u_site_alias::FONT" SIZE="$$u_site_alias::SIZE">
+        <FORM ACTION="$$u_site_alias::$utableS_CGI" METHOD="POST">
+        <INPUT TYPE="HIDDEN" NAME="stage" VALUE="2">
+        <INPUT TYPE="HIDDEN" NAME="u" VALUE="$$u_site_alias::username">
+        <INPUT TYPE="HIDDEN" NAME="p" VALUE="$$u_site_alias::passwordenc">
+        <TABLE BORDER="0" CELLPADDING="3">
+		<!--TR><TD><FONT FACE="$Trade::FONT" SIZE="$Trade::SIZE">
+                WHERE Statement: &nbsp; &nbsp; &nbsp;<BR>
+                <TEXTAREA NAME="WHERE" ROWS="10" COLS="50">$WHERE</TEXTAREA>
+                </FONT>
+                <P>
+                <INPUT TYPE="submit" NAME="Search" VALUE="Search">
+                <HR>
+                </TD></TR-->
+#auto_input
+                <TR><TD>
+                <INPUT TYPE="reset" NAME="Reset" VALUE="Reset">&nbsp;&nbsp;&nbsp;
+                <INPUT TYPE="submit" NAME="Search" VALUE="Search">
+                </TD></TR>
+        </TABLE>
+        </FORM>
+        </FONT>
+        </TD>
+   </TR>
+
+</TABLE>
+EOM
+
+return $str;
+
+}
+sub html_stage2
+{
+my $lorder_dir;
+my $page_str = &get_page_str();
+
+my $str = << "EOM";
+<TABLE WIDTH="$$u_site_alias::TABLE_WIDTH" BORDER="0" CELLPADDING="4" CELLSPACING="0">
+   <TR>
+	<TD COLSPAN="10">
+	<FONT FACE="$$u_site_alias::FONT" SIZE="$$u_site_alias::SIZE">
+	$page_str
+	</FONT>
+	</TD>
+   </TR>
+   <TR>
+        <TD>
+        <FORM ACTION="$$u_site_alias::$utable_CGI">
+        $$u_site_alias::HIDDEN
+        <INPUT TYPE="hidden" NAME="stage" VALUE="1">
+        <INPUT TYPE="hidden" NAME="mode" VALUE="edit">
+        <INPUT TYPE="submit" NAME="Done" VALUE="Add New">
+        </FORM>
+        </TD>
+        <TD>
+        <FORM ACTION="$$u_site_alias::$utableS_CGI">
+        $$u_site_alias::HIDDEN
+        <INPUT TYPE="hidden" NAME="stage" VALUE="1">
+        <INPUT TYPE="submit" NAME="Done" VALUE="Search">
+        </FORM>
+        </TD>
+        <TD>
+        <FORM ACTION="$$u_site_alias::INDEX_CGI">
+        $$u_site_alias::HIDDEN
+        <INPUT TYPE="hidden" NAME="stage" VALUE="2">
+        <INPUT TYPE="submit" NAME="Done" VALUE="Done">
+        </FORM>
+        </TD>
+   </TR>
+   <TR BGCOLOR="$$u_site_alias::COLOR">
+#auto_list_head
+   </TR>
+
+EOM
+
+my $where = $WHERE;
+$where .= " ORDER BY $order_by $order_dir " if($order_by);
+$where .= " LIMIT $offset,$limit " if($limit);
+
+&$u_site_alias::select_$tables($where);
+while(&$u_site_alias::next_$table())
+{
+   &$u_site_alias::toggle_color();
+
+   $str .= << "EOM";
+   <TR BGCOLOR="$$u_site_alias::COLOR">
+#auto_list_body
+   </TR>
+EOM
+}
+
+$str .= << "EOM";
+   <TR>
+	<TD COLSPAN="10">
+	<FONT FACE="$$u_site_alias::FONT" SIZE="$$u_site_alias::SIZE">
+	$page_str
+	</FONT>
+	</TD>
+   </TR>
+   <TR>
+        <TD>
+        <FORM ACTION="$$u_site_alias::$utable_CGI">
+        $$u_site_alias::HIDDEN
+        <INPUT TYPE="hidden" NAME="stage" VALUE="1">  
+        <INPUT TYPE="hidden" NAME="mode" VALUE="edit">  
+        <INPUT TYPE="submit" NAME="Done" VALUE="Add New">
+        </FORM>
+        </TD>
+	<TD>
+        <FORM ACTION="$$u_site_alias::$utableS_CGI">
+        $$u_site_alias::HIDDEN
+        <INPUT TYPE="hidden" NAME="stage" VALUE="1">
+        <INPUT TYPE="submit" NAME="Done" VALUE="Search">
+        </FORM>
+        </TD>
+        <TD>
+        <FORM ACTION="$$u_site_alias::INDEX_CGI">
+        $$u_site_alias::HIDDEN
+        <INPUT TYPE="hidden" NAME="stage" VALUE="2">  
+        <INPUT TYPE="submit" NAME="Done" VALUE="Done">
+        </FORM>
+        </TD>
+   </TR>
+</TABLE>
+EOM
+
+return $str;
+
+}
+
+
+sub get_page_str
+{
+if(!$limit)
+{
+   return "";
+}
+
+my $str;
+
+my $total = &$u_site_alias::count_table('$table',$WHERE);
+my $total_pages = int($total/$limit) + 1;
+my $cur_page = int($offset/$limit) + 1;
+my $page_min = $offset + 1;
+my $page_max = $offset + $limit;
+
+if($cur_page > 1)
+{
+   my $previous_offset = $offset - $limit;
+   if($previous_offset < 0)
+   {
+	$previous_offset = 0;
+   }
+
+   $str .= "[ <A HREF=\"$$u_site_alias::$utableS_CGI?stage=2&limit=$limit&offset=$previous_offset&order_by=$order_by&order_dir=$order_dir&$$u_site_alias::HSTR&WHERE=$WHERE_ESC\">Previous Page</A> ]";
+}
+
+# $str .= " Now viewing $page_min-$page_max of $total (Page $cur_page of $total_pages) ";
+
+if($total_pages > 1)
+{
+$str .= " [";
+for(my $page = 1; $page <= $total_pages; $page += int($total_pages/10 + 1))
+{
+   my $page_offset = ($page * $limit) - $limit;
+   my $ob;
+   my $cb;
+   if($page == $cur_page)
+   {
+	$ob = "<B>";
+	$cb = "</B>";
+   }
+   $str .= " <A HREF=\"$$u_site_alias::$utableS_CGI?stage=2&limit=$limit&offset=$page_offset&order_by=$order_by&order_dir=$order_dir&$$u_site_alias::HSTR&WHERE=$WHERE_ESC\">$ob$page$cb</A> |";
+}
+chop($str);
+$str .= "] ";
+}
+
+if($cur_page < $total_pages)
+{
+   my $next_offset = $offset + $limit;
+   if($next_offset < 0)
+   {
+	$next_offset = 0;
+   }
+
+   $str .= "[ <A HREF=\"$$u_site_alias::$utableS_CGI?stage=2&limit=$limit&offset=$next_offset&order_by=$order_by&order_dir=$order_dir&$$u_site_alias::HSTR&WHERE=$WHERE_ESC\">Next Page</A> ]";
+}
+
+return $str;
+}
+
+sub get_where
+{
+my $WHERE = "WHERE 1=1 ";
+
+#auto_where
+
+return $WHERE;
+}

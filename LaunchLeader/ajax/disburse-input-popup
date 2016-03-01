@@ -1,0 +1,96 @@
+#!/usr/bin/perl
+
+use lib '../cgi-bin';
+use Launchh;
+use strict;
+    
+#$Launchh::HFILE = "empty-ll2.html";
+
+my $trailer = $Launchh::_query->param('trailer');
+my $trailto = $Launchh::_query->param('trailto');
+
+my $trailfor = 5;
+my $eId = $Launchh::_query->param('eId');
+
+#my $message = $Launchh::_query->param('message') ; 
+
+$Launchh::u = $Launchh::_query->param('trailto');
+
+&Launchh::select_accounts("WHERE account_username='$Launchh::u'");
+&Launchh::next_account();
+
+my $toname = $Launchh::account->{'account_name_first'}. " ". $Launchh::account->{'account_name_last'}; 
+my $ttfull = $toname;
+print $Launchh::_query->header();
+print html_pay_social();
+&Launchh::clean_exit();
+
+sub html_pay_social
+{
+		
+	my $update_str = << "EOM";
+<div class="popup">
+		<div class="popup-head" id="confirmation">
+		<h2>Disburse fund for $toname?</h2>
+	</div><!-- /.popup-head -->
+
+	<div class="popup-body">
+		<p>The default collection fee is 5%. Adjust below if you want</p>
+        
+		<div class="form form-refer">
+			<form onsubmit="return goThroughPayment();">
+            
+				<div class="form-body">
+					<div class="form-row  form-row-alt">
+                                <h3>USD
+						<div class="form-controls">
+								<input class="field" type="number" id="custom-disburse-amount" placeholder="$trailfor" value="$trailfor" min="0.00"  max="$trailfor" step="1.00"/>&nbsp;
+						</div><!-- /.form-controls -->
+                        </h3>
+					</div><!-- /.form-row -->
+				</div><!-- /.form-body -->
+
+				<div class="form-actions">
+                            <input type="submit" value="Disburse Fund for $Launchh::account->{'account_name_first'}" class="btn btn-medium" /> <br><br><br>
+                        <div align=right><img src="../images/stripe-powered.jpg" width="120px" height="25px"> </div>
+				</div><!-- /.form-actions -->
+			</form>
+            
+		</div><!-- /.form form-refer -->
+	</div><!-- /.popup-body -->
+</div><!-- /.popup -->
+
+<script>
+            
+            function goThroughPayment() {
+                // var trailfor = \$("#custom-disburse-amount").val();
+                // location.href="../social/fmttll?trailer=$trailer&trailto=$trailto&ttfull=$ttfull&trailfor="+trailfor+"&eId=$eId";
+                return false;
+          }
+
+</script>
+
+EOM
+		
+return $update_str;
+}
+
+#my $message = $Launchh::_query->param('message') ; 
+
+$Launchh::u = $Launchh::_query->param('trailto');
+
+&Launchh::select_accounts("WHERE account_username='$Launchh::u'");
+&Launchh::next_account();
+
+my $toname = $Launchh::account->{'account_name_first'}. " ". $Launchh::account->{'account_name_last'}; 
+my $ttfull = $toname;
+
+sub trim
+{
+    my $str = shift;
+    
+    $str =~ s/^\s+//;
+    $str =~ s/\s+$//;
+    
+    return $str;
+}

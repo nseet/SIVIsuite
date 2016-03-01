@@ -1,0 +1,321 @@
+#!/usr/bin/perl
+
+use lib 'cgi-bin';
+use lib 'util';
+use Launchh;
+use strict;
+use Data::Dumper;
+    
+$Launchh::HFILE = "empty-ll2.html";
+
+$Launchh::u = $Launchh::_query->param('u');
+
+&Launchh::select_accounts("WHERE account_username='$Launchh::u'");
+&Launchh::next_account();
+
+$Launchh::uid = $Launchh::account->{'account_id'};
+
+if(!$Launchh::uid)
+{
+      print "Location: /index.html\n\n";
+      &Launchh::clean_exit();
+}
+
+&Launchh::select_account($Launchh::uid);
+print $Launchh::_query->header();
+print_header(); # &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+print html_profile();
+print &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+
+
+&Launchh::clean_exit();
+
+
+sub html_profile
+{
+
+my $first_name = $Launchh::account->{'account_name_first'};
+my $last_name = $Launchh::account->{'account_name_last'}; 
+my $headline = $Launchh::account->{'account_desc'};
+my $linkedin_username = "linkedin url";
+
+if($Launchh::account->{'account_note'} =~ /account_liun: (.+)\n/)
+{
+   $linkedin_username = $1;
+}
+my $location = $Launchh::account->{'account_phone'};
+my $email = $Launchh::account->{'account_email'} || "email";
+my $account_summary = "Or paste bio here";
+
+my @detailArr;
+&Launchh::select_details("WHERE detail_type=2 AND detail_status=1 AND detail_name LIKE 'Idea-%' ORDER BY CAST(detail_note AS DECIMAL(5,1))");
+while(&Launchh::next_detail())
+{
+   &Launchh::select_question($Launchh::detail->{'detail_desc'});
+   
+   my $question_limit = $Launchh::question->{'question_limit'};
+   my $detail_note = $Launchh::detail->{'detail_note'}  ;
+
+   #select user's previous answer, if any
+   &Launchh::select_account_details("WHERE account_id=$Launchh::uid AND detail_id=$Launchh::detail->{'detail_id'} AND account_detail_status=1 ORDER BY account_detail_id desc LIMIT 1");
+   &Launchh::next_account_detail();
+   
+   my $detail_value = $Launchh::account_detail->{'account_detail_desc'};
+   my $detail_id = $Launchh::detail->{'detail_id'};
+   
+   $detailArr[$detail_id] = $detail_value;
+}
+
+my $idea_summary = $detailArr[36];
+my $idea_industry = $detailArr[37];
+my $idea_focus1 = $detailArr[38];
+my $idea_focus2 = $detailArr[39];
+my $idea_focus3 = $detailArr[40];
+my $idea_photo = $detailArr[41];
+my $idea_description = $detailArr[42];
+
+$idea_description =~ s/\n/<br>/g;
+$idea_description =~ s/\r/<br>/g;
+
+
+#exit;
+#        <INPUT TYPE="HIDDEN" NAME="account_id" VALUE="$Launchh::uid">
+
+my $str = << "EOM";
+		<div class="section section-idea">
+			<div class="shell">
+          		<div class="section-head">
+					<div class="section-head-actions">
+						<a href="#" class="btn btn-medium btn-back">Back</a>
+							
+						<a href="./profile?u=$Launchh::account->{'account_username'}" class="btn btn-medium btn-grey">About Entrepreneur</a>						
+							
+						<a href="#" class="btn btn-medium btn-yellow">About Idea</a>
+					</div><!-- /.section-head-actions -->
+				</div><!-- /.section-head -->
+
+				<div class="section-body">
+					<h2>$idea_summary</h2>
+
+					<div class="slider slider-idea">
+						<div class="slider-clip">
+							<div class="slides">
+								<img src="uploads/$Launchh::uid/idea-images/$idea_photo" alt="" />
+								
+								<!-- <img src="css/images/temp/idea-image.jpg" alt="" /> -->
+							</div><!-- /.slides -->
+						</div><!-- /.slider-clip -->
+
+						<a href="#" class="slider-prev"></a>
+
+						<a href="#" class="slider-next"></a>
+					</div><!-- /.slider slider-idea -->
+EOM
+
+=begin
+$str .= << "EOM";
+					<div class="idea-lists">
+						<div class="idea-list">
+							<h4>Industry</h4>
+							
+							<ul>
+								<li>
+									<span>Lorem ipsum dolor sit amet</span>
+								</li>
+
+								<li>
+									<span>Consectetur adipiscing elit. Integer nec odio</span>
+								</li>
+
+								<li>
+									<span>Praesent libero. Sed cursus ante dapibus diam. Sed nisi.</span>
+								</li>								
+							</ul>
+						</div><!-- /.idea-list -->
+
+						<div class="idea-list">
+							<h4>Focus</h4>
+
+							<ul>
+								<li>
+									<span>Hardware</span>
+								</li>
+
+								<li>
+									<span>Internet of Things</span>
+								</li>																
+							</ul>
+						</div><!-- /.idea-list -->
+					</div><!-- /.idea-lists -->
+EOM
+=cut
+
+$str .= << "EOM";
+					<div class="idea-description">
+						<h4>Description</h4>
+
+						<p>
+                                    $idea_description
+                             </p>
+					</div><!-- /.idea-description -->
+                       <div class="section-comments">
+
+EOM
+
+=begin
+$str .= << "EOM";
+					<div class="idea-feedback">
+						<h4>Feedback</h4>
+
+						<div class="avatar">
+							<img src="" alt="" />
+						</div><!-- /.avatar -->
+						
+						<div class="form form-comment">
+							<form action="?" method="post">
+								<div class="form-body">
+									<div class="form-row">
+										<div class="form-controls">
+											<textarea cols="30" rows="10" class="textarea" placeholder="Share Your Feedback"></textarea>
+										</div><!-- /.form-controls -->
+									</div><!-- /.form-row -->
+
+									<div class="form-row form-row-alt">
+										<div class="form-controls">
+											<input type="text" name="c-name" id="c-name" class="field" placeholder="Your name..." />
+										</div><!-- /.form-controls -->
+									</div><!-- /.form-row form-row-alt -->
+
+									<div class="form-row form-row-alt">
+										<div class="form-controls">
+											<input type="text" name="c-email" id="c-email" class="field" placeholder="Your email..." />
+										</div><!-- /.form-controls -->
+									</div><!-- /.form-row form-row-alt -->
+								</div><!-- /.form-body -->
+
+								<div class="form-actions">
+									<input type="submit" value="Share" class="btn btn-medium" />
+								</div><!-- /.form-actions -->
+							</form>
+						</div><!-- /.form form-comment -->
+					</div><!-- /.idea-feedback -->
+
+					<div class="section-comments">
+						<ol class="comments">
+							<li class="comment">
+								<div class="avatar">
+									<img src="" alt="" />
+								</div><!-- /.avatar -->
+								
+								<div class="comment-body">
+									<h4>
+										Matt Nice<span>3 Days Ago</span>
+									</h4>
+									
+									<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam. Sed nisi. </p>
+									
+									<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam. Sed nisi. </p>
+								</div><!-- /.comment-body -->
+
+								<div class="comment-children">
+									<div class="comment">
+										<div class="avatar">
+											<img src="" alt="" />
+										</div><!-- /.avatar -->
+										
+										<div class="comment-body">
+											<h4>
+												Bill Nice<span>2 Days Ago</span>
+											</h4>
+											
+											<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam. Sed nisi. </p>
+										</div><!-- /.comment-body -->
+									</div><!-- /.comment -->
+								</div><!-- /.comment-children -->
+							</li><!-- /.comment -->
+
+							<li class="comment">
+								<div class="avatar">
+									<img src="" alt="" />
+								</div><!-- /.avatar -->
+								
+								<div class="comment-body">
+									<h4>
+										Steve Nice<span>4 Days Ago</span>
+									</h4>
+									
+									<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam. Sed nisi. </p>
+								</div><!-- /.comment-body -->
+							</li><!-- /.comment -->
+						</ol><!-- /.comments -->
+EOM
+
+=cut
+$str .= << "EOM";
+						<div class="section-actions">
+							 <a href="ajax/report-violation?uname=$Launchh::u" class="btn btn-medium modal-trigger">Report Violation of Terms</a> 
+							<!-- <a href="#" class="btn btn-medium modal-trigger">Report Violation of Terms</a> -->
+						</div><!-- /.section-actions -->
+					</div><!-- /.section-comments -->
+				</div><!-- /.section-body -->
+			</div><!-- /.shell -->
+		</div><!-- /.section section-idea -->
+EOM
+
+return $str;
+
+}
+
+
+sub print_header
+{
+   my $header = &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+#$user_header_str = " of ".$Launchh::account->{'account_name_first'} if($Launchh::account->{'account_name_first'} ne '');
+
+   $header =~ s/XXXTITLEXXX/USER PROFILE/is;
+   my $headerold .= << "EOM";
+
+		<aside class="sidebar">
+			<ul class="widgets">
+				<li class="widget widget-nav">
+					<ul>
+						<li>
+							<a href="/dash?$Launchh::HSTR">
+								<i class="icon-desktop"></i> Dashboard
+							</a>
+						</li>
+		
+						<li class="current">
+							<a href="/account?$Launchh::HSTR">
+								<i class="icon-app"></i> Profile
+							</a>
+						</li>
+		
+						<li>
+							<a href="/inbox?$Launchh::HSTR">
+								<i class="icon-mail"></i> Inbox 
+							</a>
+		
+							<!--ul>
+								<li>
+									<a href="/inbox?$Launchh::HSTR">
+										<i class="icon-mail-arrow-down"></i> Inbox
+									</a>
+								</li>
+		
+								<li>
+									<a href="/inbox?$Launchh::HSTR">
+										<i class="icon-mail-arrow-up"></i> Sent
+									</a>
+								</li>
+							</ul-->
+						</li>
+					</ul>
+				</li><!-- /.widget widget-nav -->
+			</ul><!-- /.widgets -->
+		</aside><!-- /.sidebar -->
+
+EOM
+
+   print $header;
+}

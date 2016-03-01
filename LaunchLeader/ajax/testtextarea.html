@@ -1,0 +1,64 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>TinyMCE - Inline editing example</title>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<link type="text/css" rel="stylesheet" href="https://moxiecode.cachefly.net/tinymce/v8/css/all.min.css?v=8" />
+</head>
+<body>
+
+
+	
+				
+					<script src="https://tinymce.cachefly.net/4.1/tinymce.min.js"></script>
+					<script type="text/javascript">
+					tinymce.init({
+						selector: "h1.editable",
+						inline: true,
+						toolbar: "undo redo",
+						menubar: false,
+						autosave_ask_before_unload: false
+					});
+
+					tinymce.init({
+						selector: "div.editable",
+						inline: true,
+						plugins: [
+							"advlist autolink lists link image charmap print preview anchor",
+							"searchreplace visualblocks code fullscreen",
+							"insertdatetime media table contextmenu paste"
+						],
+						toolbar: "insertfile undo redo | styleselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image",
+						autosave_ask_before_unload: false
+					});
+					</script>
+
+
+				<div class="demo_content">
+					<div id="view">
+						<p>This example shows you the inline editing capabilities of TinyMCE click on the header or div below.</p>
+
+						<form method="post" action="#">
+						<fieldset>
+							<h1 class="editable">Editable header</h1>
+
+							<div class="editable" style="width:100%">
+							<p>This is an editable div element element.</p>
+							<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam tincidunt est ac dolor condimentum vitae laoreet ante accumsan. Nullam tincidunt tincidunt ante tempus commodo. Duis rutrum, magna non lacinia tincidunt, risus lacus tempus ipsum, sit amet euismod justo metus ut metus. Donec feugiat urna non leo laoreet in tincidunt lectus gravida. Sed semper ante sed dui consectetur eget commodo eros imperdiet. Mauris magna diam, scelerisque at ornare vel, dignissim ac sem. Fusce id congue lacus. Duis sit amet tellus erat. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Phasellus mattis facilisis pretium. In in nibh eu urna ornare semper. Sed imperdiet felis vitae nibh sagittis eu pulvinar metus facilisis. Sed dolor orci, aliquet sagittis auctor id, faucibus at justo.</p>
+							<p>Sed sagittis, nisi at ullamcorper egestas, lorem risus lobortis quam, porta vehicula mi erat ac nisi. Suspendisse ut lorem vel mauris volutpat porttitor. Aliquam ac viverra metus. Quisque aliquam velit neque. Maecenas tellus nibh, vestibulum nec tempor quis, convallis vitae libero. Mauris sit amet urna nunc, et porta orci. Nam euismod sollicitudin commodo. In hac habitasse platea dictumst. Nam et dui id risus luctus placerat id ut augue.</p>
+							</div>
+
+							<div><a class="btn submitbtn" id="submitbtn" href="#"><span>Submit</span></a></div>
+						</fieldset>
+						</form>
+					</div> <!-- view -->
+				</div> <!-- demo-content-->
+
+
+
+
+
+
+</body>
+</html>

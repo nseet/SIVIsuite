@@ -1,0 +1,351 @@
+/* ==========================================================================
+	#Reset
+========================================================================== */
+* { margin: 0; padding: 0; outline: 0; }
+
+/* ==========================================================================
+	#Base
+========================================================================== */
+body, html { height: 100%; }
+
+body {
+    font-size: 14px;
+    line-height: 1.2;
+    font-family: 'Proxima Nova A Condensed', sans-serif;
+    color: #333;
+    background: #000;
+    min-width: 320px;
+}
+
+a { color: #0252aa; text-decoration: none; cursor: pointer; }
+a:hover { text-decoration: underline; }
+a img { border: 0; }
+
+input, textarea, select { font-size: 12px; font-family: arial, sans-serif; -webkit-appearance: none; border-radius: 0; }
+textarea { overflow: auto; }
+
+h1,
+h2,
+h3,
+h4 { font-weight: normal; }
+
+h1 { font-family: 'Proxima Nova ExtraBold', sans-serif; font-size: 46px; color: #fff; line-height: 1.3; margin-bottom: 10px; }
+h2 { font-family: 'Proxima Nova Bold', sans-serif; font-size: 32px; color: #3398d9; }
+h3 { font-family: 'Proxima Nova', sans-serif;   font-size: 24px;  line-height: 34px;  letter-spacing: 0;  font-weight: normal; margin-top: 0; }
+
+::-webkit-input-placeholder { color: #444; }
+:-moz-placeholder { color: #444; }
+::-moz-placeholder { color: #444; }
+:-ms-input-placeholder { color: #444; }
+
+.profile-image-container {
+    width: 200px;
+    height: 200px;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: 50% 50%;
+}
+@media (min-width: 801px) {
+	.discover-image-container {
+		width: 298px;
+		height: 132px;
+		background-size: cover;
+		background-repeat: no-repeat;
+		background-position: 50% 50%;
+	}	
+}
+
+@media (min-width: 500px)  and (max-width: 800px) {
+	.discover-image-container {
+		width: 238px;
+		height: 110px;
+		background-size: cover;
+		background-repeat: no-repeat;
+		background-position: 50% 50%;
+	}	
+}
+
+@media (min-width: 400px)  and  (max-width: 500px) {
+	.discover-image-container {
+		width: 225px;
+		height: 110px;
+		background-size: cover;
+		background-repeat: no-repeat;
+		background-position: 50% 50%;
+	}	
+}
+
+@media (max-width: 400px) {
+	.discover-image-container {
+		width: 100%;
+		height: 110px;
+		background-size: cover;
+		background-repeat: no-repeat;
+		background-position: 50% 50%;
+	}	
+}
+
+@media only screen and (max-device-width: 800px), only screen and (device-width: 1024px) and (device-height: 600px), only screen and (width: 1280px) and (orientation: landscape), only screen and (device-width: 800px), only screen and (max-width: 767px) {
+  .flex-video { padding-top: 0; }
+}
+    
+
+/* ==========================================================================
+    #Main
+========================================================================== */
+.main { }
+
+.section { padding: 0px 0; }
+
+.section-home-updates h2 { text-align: center; text-transform: uppercase; color: #333; margin-bottom: 20px; }
+.section-home-updates .updates { overflow: hidden; list-style: none outside none; margin-left: 20px; }
+.section-home-updates .updates > li { float: left; width: 300px; height:441px; margin-left: 35px; border: 1px solid #ccc; -webkit-box-sizing: border-box; -moz-box-sizing: border-box; box-sizing: border-box; }
+
+
+.section-home-updates .updates .update-image img { width: 100%; }
+
+.section-home-updates .updates .update-content { padding: 10px 0; }
+.section-home-updates .updates .update-content h3,
+.section-home-updates .updates .update-content h4,
+.section-home-updates .updates .update-content h4 span,
+.section-home-updates .updates .update-content p { padding: 0 10px; }
+
+.section-home-updates .updates .update-content h3 { font-size: 20px; color: #333; text-transform: none; margin-bottom: 0; }
+.section-home-updates .updates .update-content h3 a { color: #333; }
+.section-home-updates .updates .update-content h4 { font-size: 15px; }
+.section-home-updates .updates .update-content h4 + span { display: block; font-size: 12px; font-family: 'Proxima Nova Light', sans-serif; text-transform: none; letter-spacing: 0.02em; padding: 0 10px 10px; border-bottom: 1px solid #ccc; }
+.section-home-updates .updates .update-content p { font-family: 'Proxima Nova', sans-serif; font-size: 12px; padding: 10px; line-height: 1.33; }
+.section-home-updates .updates .update-content section { position:relative; height: 80px; overflow: hidden; text-overflow: ellipsis; }
+
+
+.section-home-updates .updates .update-content .update-share { margin: 0 5px; padding: 10px 10px 5px; border: 1px solid #ccc; }
+
+.section-home-updates .updates .update-content .update-share ul { list-style: none outside none; overflow: hidden; }
+
+.section-home-updates .updates .update-content .update-share li { float: left; width: 33%; font-family: 'Proxima Nova', sans-serif; font-size: 20px; text-align: center; }
+
+.section-home-updates .updates .update-content .update-share li:nth-child(3n+1) { text-align: left; }
+
+.section-home-updates .updates .update-content .update-share li .ico { display: block; }
+
+.section-home-updates .updates .update-content .update-share li .btn { width: 70px; height: 24px; display: inline-block; }
+
+.section-confirm .btn-fb-share,
+.section-profile .profile-meta .update-share li .btn-fb-share,
+.section-home-updates .updates .update-content .update-share li .btn-fb-share { background: url(images/fb-btn.png) no-repeat center; }
+
+.section-confirm .btn-tw-tweet,
+.section-profile .profile-meta .update-share li .btn-tw-tweet,
+.section-home-updates .updates .update-content .update-share li .btn-tw-tweet { background: url(images/tw-btn.png) no-repeat center; }
+
+.section-confirm .btn-link-share,
+.section-profile .profile-meta .update-share li .btn-link-share,
+.section-home-updates .updates .update-content .update-share li .btn-link-share { background: url(images/link-icon.png) no-repeat center; }
+
+.section-confirm .btn-embed-share,
+.section-profile .profile-meta .update-share li .btn-embed-share,
+.section-home-updates .updates .update-content .update-share li .btn-embed-share { background: url(images/embed-icon.png) no-repeat center; }
+
+.section-home-updates .updates .update-content .update-funding { overflow: hidden; padding: 10px 10px 0; margin-top: 10px; }
+
+.section-home-updates .updates .update-content .funding-progress { width: 100%; height: 11px; position: relative; background: #eeeff0; border-radius: 5px; overflow: hidden; margin-bottom: 5px; }
+.section-home-updates .updates .update-content .funding-progress > span { background: #2dcb71; position: absolute; left: 0; top: 0; height: 11px; }
+
+.section-home-updates .updates .update-content .update-funding span { font-family: 'Proxima Nova', sans-serif; font-size: 12px; }
+.section-home-updates .updates .update-content .update-funding .funding-start { float: left; }
+.section-home-updates .updates .update-content .update-funding .funding-end { float: right; }
+
+.section-home-updates .updates .update-actions { padding: 28px 0; text-align: center; border-top: 1px solid #ccc; }
+.section-home-updates .updates .update-actions .btn { font-family: 'Proxima Nova Light', sans-serif; font-size: 18px; padding: 13px 14px; }
+
+.profile-tabs-alt .progress .regular { font-family: 'Proxima Nova', sans-serif; font-size: 22px;}
+.profile-tabs-alt .progress .yellow-bold {  font-family: 'Proxima Nova', sans-serif; font-size: 22px; color: #fccb08;  }
+.profile-tabs-alt .progress .green-bold {  font-family: 'Proxima Nova', sans-serif; font-size: 22px; color: #2dcb71;  }
+
+
+/* ============================================================================
+    #Media Queries
+============================================================================= */
+@media (max-width: 999px) {
+    .header-inner { padding: 0 20px; }
+    .intro-inner { padding: 30px 20px 0; }
+
+    .intro-inner h1,
+    .intro-inner p { padding: 0; }
+
+    .form-filter .form-body { width: 75%; }
+    .form-filter .field { width: 32%; margin-left: 2%; margin-bottom: 10px; }
+    .form-filter .field:nth-child(3n+1) { margin-left: 0; }
+    .form-filter .form-actions { width: 25%; }
+    .form-filter .form-btn { margin: 0; width: 98%; float: right; }
+
+    #no-slider { margin-left: -1%; }
+    #no-slider .update { width: 31%; margin-left: 0%; }
+	
+	#no-slider-idea { margin-left: -1%; }
+    #no-slider-idea .update { width: 31%; margin-left: 1%; }
+
+	#no-slider-profile { margin-left: -1%; }
+    #no-slider-profile .update { width: 31%; margin-left: 0%; }
+
+    .section-home-updates .updates .update-content .update-share li,
+    .section-home-updates #no-slider .update-content .update-share li { width: 39%; }
+    .section-home-updates #no-slider-idea .update-content .update-share li { width: 33%; }
+    .section-home-updates #no-slider-profile .update-content .update-share li { width: 39%; }
+
+    .section-home-updates .updates .update-content .update-share li:nth-child(3n+1),
+    .section-home-updates #no-slider .update-content .update-share li:nth-child(3n+1) { width: 22%; }
+    .section-home-updates #no-slider-idea .update-content .update-share li:nth-child(3n+1) { width: 33%; }
+    .section-home-updates #no-slider-profile .update-content .update-share li:nth-child(3n+1) { width: 22%; }
+
+    .form-create-profile .form-body,
+    .form-create-profile .form-actions { width: 80%; }
+    .form-create-profile .file-upload,
+    .form-create-profile .file-upload .file-upload-names  { width: 100%; }
+
+    .form-create-profile .file-upload .file-upload-names { padding: 14px 84px 14px 14px; position: relative; z-index: 99; }
+
+    .form-create-profile .file-upload .file-upload-btn { position: absolute; right: 0; top: 0; z-index: 999; }
+
+    .interaction .btn-medium { width: 100%; }
+
+    .section-signup .section-body { padding: 0 10px; }
+    .section-signup .login, .section-signup .register { width: 48%; }
+    .section-signup .login { margin-left: 4%; }
+
+    .form-refer .form-actions .btn-medium { padding: 11px 18px; }
+    .profile-tabs-alt .progress-actions { margin-top: 37px; }
+    .profile-tabs-alt .progress-actions .btn { font-size: 21px; }
+	
+	 /* this line may need to be removed*/
+    .section-analitics .update-image .message-stats li { margin: 0 7px; }	
+
+    .section-admin .shell { width: auto; max-width: 910px; padding: 0 10px; }
+
+    .admin-content { width: auto; margin-right: 220px; }
+
+    .form-update { width: auto; max-width: 600px; overflow: hidden; }
+}
+
+@media (max-width: 767px) {
+    .feature { float: none; width: 100%; }
+    .feature ~ .feature { margin-top: 70px; }
+    a.footer-logo { float: none; display: inline-block; }
+
+    .nav-access { display: none; }
+    .nav-trigger { display: block; }
+
+    .nav { position: absolute; left: 0; top: 100%; width: 100%; display: none; z-index: 999; }
+    .nav a { display: block; padding: 12px 23px; font-family: 'Proxima Nova SemiBold', sans-serif; font-size: 14px; color: #fff; text-decoration: none; background: #fccb08; }
+    .nav li ~ li { border-top: 1px solid #fff; }
+	.nav li.separator { margin: 0; }	
+    .nav a:hover { background: #999; color: #fff; }
+
+    .nav .signup { background: #fccb08; padding: 8px; overflow: hidden; }
+    .nav .signup a { padding: 7px 8px 8px; float: right; background: #333; font-family: 'Proxima Nova', sans-serif; color: #fccb08; }
+    .nav .signup a:hover { background: #999; }
+
+    .form-filter .form-body,
+    .form-filter .form-actions { float: none; width: 100%; }
+    .form-filter .field ~ .field { margin-left: 0; }
+    .form-filter .field { width: 100%; margin-left: 0; margin-bottom: 10px; }
+    .form-filter .form-btn { width: 100%; }
+
+    #no-slider .update { width: 47%; }
+    #no-slider-idea .update { width: 90%; }
+    #no-slider-profile .update { width: 47%; }
+
+    .form-create-profile .form-body,
+    .form-create-profile .form-actions { width: 100%; border: 0; }
+
+    .idea-lists { padding: 15px 0; }
+    .idea-list { float: none; width: 100%; padding: 0 15px; -webkit-box-sizing: border-box; -moz-box-sizing: border-box; box-sizing: border-box; }
+    .idea-list ~ .idea-list { padding-top: 15px; margin-top: 15px; border-top: 1px solid #ccc; }
+
+    .idea-description, 
+    .idea-feedback { padding: 15px; }
+
+    .form-comment,
+    .section-comments .comment .comment-body { width: 70%; }
+
+    .section-confirm h2,
+    .section-user-interactions ul,
+    .section-confirm .section-body p { padding: 0 10px; }
+    .section-confirm .section-actions .btn-wrap { margin: 0 10px; }
+
+    .interaction { width: 100%; }
+    .interaction ~ .interaction { margin-left: 0; margin-top: 20px; }
+
+    .section-profile .profile-meta .progress,
+    .section-profile .profile-meta .update-share { width: 100%; float: none; }
+
+    .section-profile .profile-meta .update-share { margin-top: 20px; }
+    .section-profile .profile-meta .update-share a { display: inline-block; }
+    .section-profile .profile-meta .update-share li span { display: block; }
+    .section-profile .profile-meta .update-share li .ico { margin-left: 0; }
+
+    .section-signup .login,
+    .section-signup .register { width: 100%; center: none; margin: 0; border: 0; } 
+
+    .section-signup .register { border-bottom: 1px solid #ccc; }
+
+    .nav ul,
+    .nav ul li { float: none; }
+
+    .nav .signup { margin: 0; }
+
+    .nav li.separator a { font-family: 'Proxima Nova SemiBold', sans-serif; font-size: 16px; }
+    .nav li.separator a:before { display: none; }
+
+    .form-create-profile .btn-medium.btn-arrow { padding: 10px 40px 10px 15px; }
+
+    .select-alt .selecter { width: 59%; }
+    .select-alt .selecter:first-child { width: 39%; margin-right: 2%; }
+
+    .section-msg-analitics .message-stats li { display: block; margin-bottom: 20px; }
+
+    .section-idea .section-body, 
+    .section-profile .section-body { padding-top: 0; padding-bottom: 130px; }
+
+    .section-idea .section-head, 
+    .section-profile .section-head { bottom: 0; margin-bottom: 0; top: auto !important; border-top: 1px solid #ccc; }
+
+    .profile-tabs-alt .progress .current { font-size: 30px; }
+    .profile-tabs-alt .progress { width: 70%; }
+    .profile-tabs-alt .progress-actions { width: 27%; }
+
+    .profile-tabs-alt #tab-funded,
+    .profile-tabs-alt #tab-funders,
+    .profile-tabs-alt #tab-fundraising { padding: 20px 10px; }
+    .company-logo { margin: 30px 80px 20px 90px; }
+
+    .section-faq { padding: 20px 10px; }
+    .section-faq-inner { width: 100%; }
+    .faq-sidebar { float: none; width: 100%; }
+    .widget-nav-group ul { display: none; }
+    .widget-nav-group ul.opened { display: block; }
+    .widget-nav-group h4 { cursor: pointer; }
+    .faq-content { float: none; width: 100%; }
+
+    .form-update { padding: 0; }
+
+    .admin-sidebar { float: none; width: auto; }
+    .admin-sidebar .widget-nav h4 { display: none; }
+    .admin-sidebar .widget-nav ul { display: table; width: 100%; table-layout: fixed; }
+    .admin-sidebar .widget-nav li { display: table-cell; padding: 0 10px 0 0; }
+
+    .admin-sidebar .widget-photo { display: none; }
+
+    .admin-content { margin-right: 0; }
+
+    .form-update { max-width: 100%; }
+
+    .form-update .form-label { float: none; }
+    .form-update .form-label + .form-controls { margin: 0; padding: 0 24px; }
+
+    .form-update .form-actions .btn { margin-bottom: 6px; }
+    .form-update .form-actions .btn-medium { font-size: 18px; padding: 11px 20px; margin: 0 0 0 5px; }
+
+    .analytics-head ul { display: list; }
+    .analytics-head li { display: list-item; }
+}

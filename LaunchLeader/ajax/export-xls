@@ -1,0 +1,83 @@
+#!/usr/bin/perl -w
+
+use strict;
+use lib '../cgi-bin';
+use lib '../util';
+use Spreadsheet::WriteExcel;
+use CGI::Session;
+use Launchh;
+
+my $session = new CGI::Session("driver:File", undef, {Directory=>"/tmp"});
+print STDERR "sess uid: ".$session->param("uid");
+
+my $cgi = new CGI;
+my $cookie = $cgi->cookie( "CGISESSID", $session->id );
+$session->expire("+20m");
+
+$Launchh::u = $Launchh::_query->param('u');
+$pmode = $Launchh::_query->param('pmode');
+
+$Launchh::u = $session->param("username") if($Launchh::u  eq '');
+$Launchh::uid = $session->param("uid") if($Launchh::uid  eq '' or $Launchh::uid  == 0);
+
+if(!$Launchh::uid)
+{
+      #print "Location: /index.html?rand=\n\n";
+      if($pmode ne '' && $pmode ne 'launchleader'){
+		print $session->header(-location=>"/partner/$pmode");
+      }
+      else{
+		print $session->header(-location=>'index.html');
+      }
+      print $cgi->header(-expires => 'now', -Cache_control => 'no-cache', -Pragma => 'no-cache');      
+      &Launchh::clean_exit();
+}
+
+&Launchh::select_accounts("WHERE account_username='$Launchh::u'");
+&Launchh::next_account();
+
+# Set the filename and send the content type
+my $filename ="funding-history.xls";
+
+print "Content-type: application/vnd.ms-excel\n";
+# The Content-Disposition will generate a prompt to save the file. If 
+# to stream the file to the browser, comment out the following line.
+print "Content-Disposition: attachment; filename=$filename\n";
+print "\n";
+
+# Create a new workbook and add a worksheet. The special Perl filehand
+# will redirect the output to STDOUT
+#
+my $workbook  = Spreadsheet::WriteExcel->new(\*STDOUT);
+my $worksheet = $workbook->addworksheet();
+
+
+# Create a format
+my $heading_format = $workbook->add_format();
+$heading_format->set_bold();
+$heading_format->set_size(11);
+#$heading_format->set_color('blue');
+
+# Write to the workbook
+$worksheet->write(0, 0, "Funder Name",$heading_format);
+$worksheet->write(0, 1, "Funding Amount",$heading_format);
+$worksheet->write(0, 2, "Funding Date",$heading_format);
+$worksheet->write(0, 3, "Funder Email Address",$heading_format);
+
+my $funding_index = 1;
+&Launchh::select_funder_detail_by_user($Launchh::account->{'account_id'}, '' , 'DATE');
+while(&Launchh::next_funder_details()){
+	my $funder_name =  $Launchh::funding_detail->{'account_funder_name'};
+	my $funding_amount =  $Launchh::funding_detail->{'fund_amount'};
+	my $funding_date =  $Launchh::funding_detail->{'funding_details_datetime'};
+	my $funder_email =  $Launchh::funding_detail->{'account_funder_email'};
+    
+    my ($year, $month, $day) = $funding_date =~ /^(\d\d\d\d)-(\d\d)-(\d\d)/;
+    $funding_date = $year."-".$month."-".$day;
+    $worksheet->write($funding_index, 0, $funder_name);
+    $worksheet->write($funding_index, 1, $funding_amount);
+    $worksheet->write($funding_index, 2, $funding_date);
+    $worksheet->write($funding_index, 3, $funder_email);
+    $funding_index++;
+    print STDERR "[$funder_name $funding_amount $funding_date]\n\n"
+}

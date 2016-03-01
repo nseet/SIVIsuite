@@ -1,0 +1,238 @@
+#!/usr/bin/perl
+
+#!D:/TOWORK/bin/xampp/perl/bin/perl.exe
+
+use lib 'cgi-bin';
+use lib 'util';
+use Launchh;
+use CGI::Session;
+
+my $session = new CGI::Session("driver:File", undef, {Directory=>"/tmp"});
+my $cgi = new CGI;
+my $cookie = $cgi->cookie( "CGISESSID", $session->id );
+$session->expire("+20m");
+
+$Launchh::uid = $session->param("uid") if($Launchh::uid  eq '');
+
+my $pmode  = $session->param("pmode") if(defined $session->param("pmode"));
+$pmode = $Launchh::_query->param('pmode') if($pmode eq '');
+
+if($pmode ne  ''  && $pmode ne  'launchleader') {
+	$Launchh::HFILE = "template/empty-$pmode.html";
+}
+else{
+	$Launchh::HFILE = "empty-ll2.html";
+}
+
+my $og_title = "";
+print $Launchh::_query->header();
+print_header(); # &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+print html_faq();
+print_footer();
+
+
+&Launchh::clean_exit();
+
+
+sub html_faq
+{
+    my $str .=<<EOM;
+	<div class="section section-faq">
+			<div class="shell">
+				<div class="section-faq-inner">
+					<div class="section-head">
+						<h2>Top 10 Frequently Asked Questions</h2>
+					
+                        <p>Want to ask us about something else? Contact us at <a href="mailto:supporti\@launchleader.com">support\@launchleader.com</a></p>
+                        <p><a href="How To Start Your Company Using LaunchLeader White Paper.pdf" target="_blank">Download</a> our guide to learn how to start your company using LaunchLeader.</p>                        
+                        <p>Also <a href="5_Reasons_Crowfunding_Campaigns_Fail.pdf" target="_blank">download</a> our white paper about how to avoid the 5 most common crowdfunding fails.</p>                        
+					</div><!-- /.section-head -->
+					
+					<div class="section-body">
+					
+						<section class="faq-content">
+							<!--div class="section-head">
+								<h2>How It Works</h2>
+							</div><!-- /.section-head -->
+
+							<div class="section-body">
+                                <ul class="faq-questions">
+									<li>
+										<!--div class="faq-question-head">
+											<h3>Entrepreneur Questions</h3>
+										</div><!-- /.faq-question-head -->
+
+										<div class="faq-question-body">
+											<p>
+												<em>Who is the team that created LaunchLeader?</em>
+											</p>
+
+											<p>LaunchLeader is the flagship product created by <a href="http://www.sivi.com">SIVI</a>, which is a virtual incubator for aspiring entrepreneurs. SIVI was started by experienced founders with proven track records of building profitable businesses. Nicholas Seet is a software engineer/MBA who previously founded video ad platform, <a href="http://www.adobe.com/products/auditude.html">Auditude</a>, which was acquired by Adobe in 2011. Auditude also spun out <a href="http://intonow.com/">IntoNow</a>, which was acquired by Yahoo in 2011. Ashok Kamal is a social entrepreneur/MBA who previously founded Bennu, which is a green social media marketing company with FORTUNE 500 clients. Bennu also developed the Green Business Bureau, which was acquired by Vertuous in 2014. Nik and Ashok met while competing in the world's most prestigious business plan competition at Rice University and they joined forces to start SIVI and democratize entrepreneurship.
+											</p>
+										</div><!-- /.faq-question-body -->
+									</li>
+
+									<li>
+										<div class="faq-question-body">
+											<p>
+												<em>What types of entrepreneurs should use LaunchLeader?</em>
+											</p>
+
+											<p> LaunchLeader works for every entrepreneur and crowdfunding creator. Whether you are developing an app, designing a physical product, making an album, opening a retail store or inventing a gadget, there is a first step to validating your idea. In the Lean Startup methodology this first step is called a "Minimum Viable Product" (MVP) and it is the least amount of work you can do to get valuable customer feedback. By building an MVP first, you won't waste time on ideas that people don't care about, and you can improve your idea based on feedback from your most important audience - potential customers.
+											</p>
+										</div><!-- /.faq-question-body -->
+									</li>
+
+									<li>
+										<div class="faq-question-body">
+											<p><em>What is an example of a Minimum Viable Product (MVP)?</em>
+											</p>
+
+											<p>An MVP could be a landing page with an explainer video and field for email signups. The key is getting a feel for the interest in the product or service you are advertising on the landing page by driving traffic and tracking the email sign up conversion rate. An MVP could also be as simple as a survey asking questions about your idea. Or an MVP could be a presentation deck that describes your idea in detail with professionally designed illustrations. An MVP could also be a single song or film trailer from your project. In some cases an MVP is a prototype of your hardware invention. Again, your MVP is the least amount of work you can do to get tangible feedback from your target market.
+											</p>
+										</div><!-- /.faq-question-body -->
+									</li>
+
+									<li>                                        
+										<div class="faq-question-body">
+											<p>
+												<em>Should I be worried about someone stealing my idea?</em>
+											</p>
+
+											<p>Any time you share an idea there is a chance that someone will try to copy it. However, we believe the potential reward for sharing your idea far outweighs the risk of someone stealing it. You are probably the most passionate person about your idea and most other people will not make the sacrifices to actually turn it into a business. Experienced entrepreneurs and investors will never sign a Non-Disclosure Agreement (NDA) at the early stage so launching a startup requires you to share your idea in order to get customer feedback, raise money and build your team.
+											</p>
+										</div><!-- /.faq-question-body -->
+									</li>
+
+									<li>                                        
+                                                <div class="faq-question-body">
+											<p>
+												<em>How Is LaunchLeader different from other crowdfunding websites?</em>
+											</p>
+
+											<p>LaunchLeader is the only crowdfunding platform (CFP) focused on early stage entrepreneurs and creators who are building their MVPs. LaunchLeader is the first-step CFP to prepare entrepreneurs for raising larger amounts of money once they validate their idea. Other CFPs require working prototypes and expensive marketing budgets in order to succeed. As a result, most creators are not prepared the first-time and up to 90% of campaigns fail on other crowdfunding sites. LaunchLeader is a pre-Kickstarter/pre-Indiegogo/pre-accelerator micro-crowdfunding platform. We make it simple for entrepreneurs to approach their friends and family for support by creating an accessible, structured, professional and engaging user experience.</p>
+											<p>LaunchLeader's most unique feature is itemizing campaigns into tools similar to a wedding registry wish list format. This forces entrepreneurs to think about their priority uses of funds, gives donors more choice and allows donors to make a measureable impact by, for example, funding a complete logo or portion of a social media ad budget. As entrepreneurs make progress and complete tools, they upload a file or link as evidence to provide accountability and transparency for their donors. </p>
+											<p>Additionally, as experienced entrepreneurs, we guide other entrepreneurs about the tools they need to create their proof of concept or minimum viable product (MVP), how much they should budget and the best third-party vendors to develop the tools. We create clarity during the hardest part of entrepreneurship - getting started.
+											</p>
+										</div><!-- /.faq-question-body -->
+									</li>									
+                                    
+                                             <li>                                        
+                                                <div class="faq-question-body">
+											<p>
+												<em>How do you price the tools in the fundraising menu?</em>
+											</p>
+
+											<p>Our team has built multiple million-dollar businesses across a diverse group of industries and our experience taught us the appropriate expenses that should be budgeted when testing an idea. We constantly research and test the newest and best options for generating tools to launch a startup. Our budgeted prices reflect the average cost of different tools based on the best values on the market. You can also create your own custom campaigns for tools you choose and price accordingly.</p>
+										</div><!-- /.faq-question-body -->
+									</li>
+                                    
+                                             <li>                                        
+                                                <div class="faq-question-body">
+											<p>
+												<em>Why does each campaign last 30 days?</em>
+											</p>
+
+											<p>Crowdfunding research shows that shorter campaigns are more likely to succeed. We limit each campaign to 30 days in order to focus both the effort of entrepreneurs and the attention of donors. This minimizes risk by avoiding big failures and builds momentum through promoting incremental progress.</p>
+										</div><!-- /.faq-question-body -->
+									</li>
+                                    
+                                             <li>                                        
+                                                <div class="faq-question-body">
+											<p>
+												<em>What is the fee for using LaunchLeader?</em>
+											</p>
+
+											<p>LaunchLeader takes a 5% commission on all successful donations. In addition, our payment processing partner, Stripe, takes about 3% of the donation for a total fee of approximately 8% per donation. There is no fee for creating a profile and there is no commission fee on donations pledged for unsuccessful campaigns.</p>
+										</div><!-- /.faq-question-body -->
+									</li>
+                                    
+                                             <li>                                        
+                                                <div class="faq-question-body">
+											<p>
+												<em>What is the reward for funding a campaign?</em>
+											</p>
+
+											<p>LaunchLeader is a donation-based crowdfunding platform (CFP). Like other donation-based CFPs, the reward for donors is the intrinsic satisfaction of helping someone they care about. We make it easy and fun for friends and family to share in the exciting startup dreams of the aspiring entrepreneurs in their lives. In doing so, donors are fueling the innovation engine of the economy and supporting a better world for all of us.</p>
+										</div><!-- /.faq-question-body -->
+									</li>
+                                    
+                                             <li>                                        
+                                                <div class="faq-question-body">
+											<p>
+												<em>Are donations on LaunchLeader taxable?</em>
+											</p>
+
+											<p>As advised on all other crowdfunding websites, entrepreneurs are solely responsible for complying with all applicable tax laws and regulations in their area. We recommend entrepreneurs seek individualized tax advice from a qualified professional.</p>
+										</div><!-- /.faq-question-body -->
+									</li>
+                                    
+								</ul>								
+                            <!-- /.faq-questions -->
+
+							</div><!-- /.section-body -->
+						</section><!-- /.faq-content -->
+					</div><!-- /.section-body -->
+				</div><!-- /.section-faq-inner -->
+			</div><!-- /.shell -->
+		</div><!-- /.section .section-faq -->
+EOM
+
+return $str;
+
+}
+
+
+sub print_header
+{
+   my $header = &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+#$user_header_str = " of ".$Launchh::account->{'account_name_first'} if($Launchh::account->{'account_name_first'} ne '');
+   my $rand = rand(10000);
+
+   $header =~ s/XXXTITLEXXX/USER PROFILE/is;
+   if($Launchh::uid ne ''){
+        $header =~ s/DASHBOARDSTR/<li><a href="dashboard">My Dashboard<\/a><\/li>/is;   
+        $header =~ s/<li class="separator">\s*<a href=".*?login">Login<\/a>/<li class="separator"><a href="..\/logout?pmode=$pmode">Logout<\/a>/is  if($pmode ne '');        
+        $header =~ s/<li class="separator">\s*<a href=".*?login">Login<\/a>/<li class="separator"><a href="logout?$rand">Logout<\/a>/is ;        
+        $header =~ s/SIGNUPSTR//is;
+    }
+    else{
+        $header =~ s/DASHBOARDSTR//is;
+        if($pmode eq ''){
+            $header =~ s/SIGNUPSTR/<li class="signup"><a href=\"..\/signup\">Sign Up<\/a><\/li>/is;
+        }
+        else{
+            $header =~ s/SIGNUPSTR/<li class="signup"><a href=\"\/signup?pmode=$pmode\">Sign Up<\/a><\/li>/is;
+        }
+    }
+   
+   
+    if( $pmode ne '' ){
+        $header =~ s/faq">/faq\?pmode=$pmode">/is;   
+        $header =~ s/login">/login\?pmode=$pmode">/is;   
+        $header =~ s/discover">/discover\?pmode=$pmode">/is;   
+        $header =~ s/privacy"/privacy\?pmode=$pmode"/is;   
+        $header =~ s/dashboard"/dashboard\?pmode=$pmode"/is;   
+        $header =~ s/terms"/terms\?pmode=$pmode"/is;   
+	}
+    
+   $header =~ s/TITLE_FOR_SOCIAL_SITE/$og_title/gs;
+   
+
+   print $header;
+}
+
+
+sub print_footer
+{
+    
+   my $footer = &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+
+    if( $pmode ne '' ){
+        $footer =~ s/privacy"/privacy\?pmode=$pmode"/is;   
+        $footer =~ s/terms"/terms\?pmode=$pmode"/is;   
+    }
+    
+    print $footer;
+}
+

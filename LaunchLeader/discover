@@ -1,0 +1,832 @@
+#!/usr/bin/perl
+
+#!D:/TOWORK/bin/xampp/perl/bin/perl.exe
+
+use lib 'cgi-bin';
+use lib 'util';
+use Launchh;
+use strict;
+use Data::Dumper;
+use POSIX qw(floor);
+use POSIX qw(ceil);
+use CGI::Session;
+
+my $session = new CGI::Session("driver:File", undef, {Directory=>"/tmp"});
+my $cgi = new CGI;
+my $cookie = $cgi->cookie( "CGISESSID", $session->id );
+$session->expire("+15m");
+
+my $profilemode = "";
+my $pmode  = $session->param("pmode") if(defined $session->param("pmode"));
+$pmode = $Launchh::_query->param('pmode') if($pmode eq '');
+
+if($pmode ne  ''  && $pmode ne  'launchleader') {
+	$Launchh::HFILE = "template/empty-$pmode.html";
+        $profilemode = "?pmode=$pmode";
+}
+else{
+	$Launchh::HFILE = "empty-ll2.html";
+}
+
+#my $s_name = $Launchh::_query->param('s_name');
+my $s_exp = $Launchh::_query->param('s_exp');
+my $s_industry = $Launchh::_query->param('s_industry');
+#my $s_interest = $Launchh::_query->param('s_interest');
+my $s_school = $Launchh::_query->param('s_school');
+my $s_speciality = $Launchh::_query->param('s_speciality');
+my $s_skill = $Launchh::_query->param('s_skill');
+my $s_location = $Launchh::_query->param('s_location');
+my $s_seeking = $Launchh::_query->param('s_seeking');
+
+my $LIMIT_INX = 1000;
+my $LOAD_LIMIT = 3;
+
+my $LIMIT_TOTAL = 50000;
+$LIMIT_TOTAL = 0;
+
+$Launchh::uid = $session->param("uid") if($Launchh::uid  eq '');
+
+print $Launchh::_query->header();
+print_header(); # &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+print html_discover();
+print_footer();
+
+
+&Launchh::clean_exit();
+
+sub html_discover
+{
+#=begin
+	my $update_str_ideas = "";
+	my $update_str_profiles = "";
+	my $account_filtering_str = "";
+    
+	my $account_status = 80001;
+	my $project_status = 80002;
+    my $incomplete_status = 79999; 
+    my $campaign_wpi_status = 80005;
+    
+    my $partnercrumb  = 'launchleader';
+    $partnercrumb  = $pmode if($pmode ne '');
+    
+	$account_filtering_str = " AND account_partnercrumb = '$partnercrumb' ";
+
+    ## if launchleader login, then do not do any account filtering and show all profiles from partners.
+    if ($partnercrumb  eq 'launchleader'){
+        $account_filtering_str = "";
+    }
+    
+    my $available_idea = 0;
+    my $available_profile = 0;
+    
+    my $is_verified_str = "AND account_verified = '1'";
+
+	$available_idea = &Launchh::count_table("account", "WHERE account_username IS NOT NULL $is_verified_str AND account_status IN($project_status,$campaign_wpi_status) $account_filtering_str");
+	$available_profile = &Launchh::count_table("account", "WHERE account_username IS NOT NULL $is_verified_str AND account_status = $incomplete_status $account_filtering_str");
+    
+    my $page_url = 'http';
+    if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off") {
+    $page_url .= "s";
+    }
+    $page_url .= "://";
+    
+    $page_url .= $ENV{SERVER_NAME}; 
+    
+	&Launchh::select_accounts("WHERE account_username IS NOT NULL $is_verified_str AND account_status IN ($project_status,$campaign_wpi_status) $account_filtering_str ORDER BY account_id DESC LIMIT 0, $LIMIT_INX");
+	while(&Launchh::next_account())
+	{
+		my @detailArr;
+
+		my $not_idea_str = "";
+		#$not_idea_str = "AND detail_name NOT LIKE 'Idea-%'";
+
+		&Launchh::select_details("WHERE detail_type=2 AND detail_status=1 $not_idea_str ORDER BY CAST(detail_note AS DECIMAL(5,1))");
+		while(&Launchh::next_detail())
+		{
+		   &Launchh::select_question($Launchh::detail->{'detail_desc'});
+		   
+		   #my $question_limit = $Launchh::question->{'question_limit'};
+		   #my $detail_note = $Launchh::detail->{'detail_note'}  ;
+
+		   #select user's previous answer, if any
+		   &Launchh::select_account_details("WHERE account_id=$Launchh::account->{'account_id'} AND detail_id=$Launchh::detail->{'detail_id'} AND account_detail_status=1 ORDER BY account_detail_id desc LIMIT 1");
+		   &Launchh::next_account_detail();
+		   
+		   my $detail_value = $Launchh::account_detail->{'account_detail_desc'};
+		   my $detail_id = $Launchh::detail->{'detail_id'};
+		   
+		   $detailArr[$detail_id] = $detail_value;
+		}
+
+		my $uid = $Launchh::account->{'account_id'};
+		my $first_name = $Launchh::account->{'account_name_first'};
+		my $last_name = $Launchh::account->{'account_name_last'}; 
+		my $full_name = $first_name." ".$last_name;
+		my $headline = $Launchh::account->{'account_desc'};
+		my $username = trim($Launchh::account->{'account_username'}); 
+		my $location = $Launchh::account->{'account_phone'}; 
+        my $fund_limit = 0 ;
+		
+        #$full_name = " " if(trim($full_name) eq '');
+        $location = "&nbsp;" if(trim($location) eq '');
+        $headline = "&nbsp;" if(trim($headline) eq '');
+        
+        #my $len1 = length($headline);
+        
+		&Launchh::select_element_details("WHERE account_id = $Launchh::account->{'account_id'} AND element_detail_status = '1'" );
+		while(&Launchh::next_element_detail()){
+			&Launchh::select_elements("WHERE element_status=1 AND element.element_id = $Launchh::element_detail->{'element_id'}");
+			&Launchh::next_element();
+			if($Launchh::element->{'element_id'} eq '') {
+				next;
+			}
+	        $fund_limit += $Launchh::element->{'element_amount'};
+		}
+
+        my $current_fund = 0 ;
+        $current_fund = ceil(&Launchh::total_funded("WHERE funding_details.account_id = $Launchh::account->{'account_id'}" ));
+    
+		my $fund_percentage = 0;
+		$fund_percentage = ceil ($current_fund / $fund_limit  * 100)  if($fund_limit > 0);
+
+		my $summary = $detailArr[27];
+		my $profile_photo= $detailArr[25];
+		my $college = $detailArr[16];
+		my $experience= $detailArr[43];
+		my $seeking= $detailArr[24];
+		my $skill1= $detailArr[17];
+		my $skill2= $detailArr[22];
+		my $skill3= $detailArr[23];
+		my $speciality= $detailArr[12];
+        my $experience= $detailArr[43];
+        my $idea_photo = $detailArr[41];
+        
+        my $industry1= $detailArr[14];
+        my $industry2= $detailArr[34];
+        my $industry3= $detailArr[35];        
+
+        my $summary_length_limit = 200;
+        my $headline_length_limit  = 80;
+
+        my $skill_list = "$skill1 $skill2 $skill3";
+        
+        #$profile_photo = $idea_photo;
+        
+        $profile_photo =~ s/^\s+|\s+$//g;
+		
+		if($profile_photo eq ''){
+			$profile_photo = "images/launch-leader-default.jpg";
+			$profile_photo = "images/launchleader-human-avatar-discover.png";
+		}
+		else{
+			$profile_photo = "uploads/$uid/images/$profile_photo";
+		}
+ 			#$profile_photo = "images/launch-leader-default.jpg";
+
+
+        $profile_photo =~ s/([^^A-Za-z0-9\-_.!~*'()\/])/ sprintf "%%%0x", ord $1 /eg;
+		
+		if($s_exp ne '' && $experience !~ m/$s_exp/i) {
+			next;
+		}		
+        if($s_industry ne '' && $industry1.$industry2.$industry3 !~ m/$s_industry/i) {
+			next;
+		}
+		if($s_school ne '' && $college !~ m/$s_school/i) {
+			next;
+		}
+		if($s_speciality ne '' && $speciality !~ m/$s_speciality/i) {
+			next;
+		}
+		#if($s_skill ne '' && ( $s_skill !~ m/$skill1/i &&  $s_skill !~ m/$skill2/i &&  $s_skill !~ m/$skill3/i)) {
+		if($s_skill ne '' && ( $s_skill !~ m/$skill_list/i)) {
+				$update_str_ideas .= << "EOM";
+				<!-- CAME [$s_skill $skill_list ]-->
+EOM
+			next;
+		}
+		if($s_location ne '' && $location !~ m/$s_location/i) {
+			next;
+		}
+		if($s_seeking ne '' && $seeking !~ m/$s_seeking/i) {
+			next;
+		}
+		
+		#if($profile_photo 
+		#<img src="uploads/$Launchh::uid/images/$profile_photo" alt="" />    
+        my $trail = '';
+        if(length($summary) > $summary_length_limit)
+        {
+            #$trail = '...';
+        }        
+        
+        my $trail_headline = '';
+        if(length($headline) > $headline_length_limit)
+        {
+            #$trail_headline = '...';
+        }
+    
+    my $fb_app_id  = $Launchh::FB_APP_ID;
+    
+    $headline = string_shorten($headline, $headline_length_limit, 40);
+    #$summary = string_shorten($summary, $summary_length_limit, 50);
+	
+    my $page_url_to_share = $page_url."/profile/$username";
+    $page_url_to_share .= "?pmode=$pmode" if($pmode ne '');
+    
+    my $fund_percentage_str = "$fund_percentage% Raised";
+    $fund_percentage_str = "<font color='\#2dcb71'>Fund Now To Start</font>" if(!$fund_percentage);
+		
+	$update_str_ideas .= << "EOM";
+                            <li class="update">
+								<div class="update-image">
+									<a href="profile/$username$profilemode">
+                                                    <div class="discover-image-container" style='background-image: url($profile_photo);'></div>
+									</a>
+								</div><!-- /.update-image -->
+						
+								<div class="update-content">
+                             		<h3>
+										<a href="profile/$username$profilemode">$full_name</a>
+									</h3>									
+									
+                                    <h4>$headline $trail_headline</h4> 
+                                    
+									<span>
+										<i class="ico ico-location"></i>$location
+									</span>
+                                <section>
+                                                       <p>
+                                                            $summary $trail
+                                                      </p>
+                                            <div class="fadeout"></div>
+                                </section>
+
+									<div class="update-share">
+										<ul>
+										<!--
+											<li>
+												43
+						
+												<i class="ico ico-up"></i>
+											</li>
+											-->
+											<li>
+													<a href="#" onClick="javascript:popupwindow(\'https://www.facebook.com/sharer/sharer.php?app_id=$fb_app_id&sdk=joey&u=$page_url_to_share&display=popup&ref=plugin\',\'title\',\'650\',\'350\')" class="btn btn-fb-share"></a> 
+											</li>
+											
+											<li>
+													<a href="#" onClick="javascript:popupwindow(\'https://twitter.com/intent/tweet?text=Join me supporting #entrepreneurship by $first_name $last_name&url=$page_url_to_share&via=sivicorp\',\'title\',\'650\',\'350\')" class="btn btn-tw-tweet"></a>
+											</li>
+                                            
+											<li>
+                                                    <a href="../social/get_short_url?tsu=$username"  class="btn btn-link-share modal-trigger"></a>
+                                            </li>
+										</ul>
+									</div><!-- /.update-share -->
+						
+									<div class="update-funding">
+										<div class="funding-progress">
+											<span style="width: $fund_percentage%;"></span>
+										</div><!-- /.funding-progress -->
+										
+										<span class="funding-start">$fund_percentage_str</span>
+										
+										<span class="funding-end">\$$fund_limit</span>
+									</div><!-- /.update-funding -->
+                                        </div><!-- /.update-content -->
+                                        
+                                        <!--
+								<div class="update-actions">
+									<a href="profile/$username$profilemode" class="btn btn-medium">View Profile</a>
+								</div><!-- /.update-actions -->
+							</li><!-- /.update -->
+                            <!-- $available_idea -->
+EOM
+	}
+    
+    my $LIMIT_PROFILE = $LIMIT_INX;
+    $LIMIT_PROFILE = $LIMIT_INX - $available_idea if($LIMIT_INX > $available_idea);
+
+	&Launchh::select_accounts("WHERE account_username IS NOT NULL $is_verified_str AND account_status = $incomplete_status $account_filtering_str ORDER BY account_id DESC LIMIT 0, $LIMIT_PROFILE");
+	while(&Launchh::next_account())
+	{
+		my @detailArr;
+		my $not_idea_str = "";
+		#$not_idea_str = "AND detail_name NOT LIKE 'Idea-%'";
+
+		&Launchh::select_details("WHERE detail_type=2 AND detail_status=1 $not_idea_str ORDER BY CAST(detail_note AS DECIMAL(5,1))");
+		while(&Launchh::next_detail())
+		{
+		   &Launchh::select_question($Launchh::detail->{'detail_desc'});
+		   
+		   &Launchh::select_account_details("WHERE account_id=$Launchh::account->{'account_id'} AND detail_id=$Launchh::detail->{'detail_id'} AND account_detail_status=1 ORDER BY account_detail_id desc LIMIT 1");
+		   &Launchh::next_account_detail();
+		   
+		   my $detail_value = $Launchh::account_detail->{'account_detail_desc'};
+		   my $detail_id = $Launchh::detail->{'detail_id'};
+		   
+		   $detailArr[$detail_id] = $detail_value;
+		}
+
+		my $uid = $Launchh::account->{'account_id'};
+		my $first_name = $Launchh::account->{'account_name_first'};
+		my $last_name = $Launchh::account->{'account_name_last'}; 
+		my $full_name = $first_name." ".$last_name;
+		my $headline = $Launchh::account->{'account_desc'};
+		my $username = $Launchh::account->{'account_username'}; 
+		my $location = $Launchh::account->{'account_phone'}; 
+        my $fund_limit = 0 ;
+		
+        #$full_name = " " if(trim($full_name) eq '');
+        $location = "&nbsp;" if(trim($location) eq '');
+        $headline = "&nbsp;" if(trim($headline) eq '');
+        
+        #my $len1 = length($headline);
+        
+		my $summary = $detailArr[27];
+		my $profile_photo= $detailArr[25];
+		my $college = $detailArr[16];
+		my $experience= $detailArr[43];
+		my $seeking= $detailArr[24];
+		my $skill1= $detailArr[17];
+		my $skill2= $detailArr[22];
+		my $skill3= $detailArr[23];
+		my $speciality= $detailArr[12];
+        my $experience= $detailArr[43];
+        my $idea_photo = $detailArr[41];
+
+        my $industry1= $detailArr[14];
+        my $industry2= $detailArr[34];
+        my $industry3= $detailArr[35];        
+        
+        my $summary_length_limit = 200;
+        my $headline_length_limit  = 80;
+
+        my $skill_list = "$skill1 $skill2 $skill3";
+        
+        #$profile_photo = $idea_photo;
+        
+        $profile_photo =~ s/^\s+|\s+$//g;
+		
+		if($profile_photo eq ''){
+			$profile_photo = "images/launch-leader-default.jpg";
+			$profile_photo = "images/launchleader-human-avatar-discover.png";
+		}
+		else{
+			$profile_photo = "uploads/$uid/images/$profile_photo";
+		}
+
+        $profile_photo =~ s/([^^A-Za-z0-9\-_.!~*'()\/])/ sprintf "%%%0x", ord $1 /eg;
+		
+		if($s_exp ne '' && $experience !~ m/$s_exp/i) {
+			next;
+		}
+        if($s_industry ne '' && $industry1.$industry2.$industry3 !~ m/$s_industry/i) {
+			next;
+		}
+		if($s_school ne '' && $college !~ m/$s_school/i) {
+			next;
+		}
+		if($s_speciality ne '' && $speciality !~ m/$s_speciality/i) {
+			next;
+		}
+		#if($s_skill ne '' && ( $s_skill !~ m/$skill1/i &&  $s_skill !~ m/$skill2/i &&  $s_skill !~ m/$skill3/i)) {
+		if($s_skill ne '' && ( $s_skill !~ m/$skill_list/i)) {
+				$update_str_profiles .= << "EOM";
+				<!-- CAME [$s_skill $skill_list ]-->
+EOM
+			next;
+		}
+		if($s_location ne '' && $location !~ m/$s_location/i) {
+			next;
+		}
+		if($s_seeking ne '' && $seeking !~ m/$s_seeking/i) {
+			next;
+		}
+		
+		#if($profile_photo 
+		#<img src="uploads/$Launchh::uid/images/$profile_photo" alt="" />    
+        my $trail = '';
+        if(length($summary) > $summary_length_limit)
+        {
+            #$trail = '...';
+        }        
+        
+        my $trail_headline = '';
+        if(length($headline) > $headline_length_limit)
+        {
+            #$trail_headline = '...';
+        }
+    
+    my $fb_app_id  = $Launchh::FB_APP_ID;
+    
+    $headline = string_shorten($headline, $headline_length_limit, 40);
+    #$summary = string_shorten($summary, $summary_length_limit, 50);
+	
+    my $page_url_to_share = $page_url."/profile/$username";
+    $page_url_to_share .= "?pmode=$pmode" if($pmode ne '');
+
+		
+	$update_str_profiles .= << "EOM";
+                                    <li class="update">
+								<div class="update-image">
+									<a href="profile/$username$profilemode">
+                                                    <div class="discover-image-container" style='background-image: url($profile_photo);'></div>
+									</a>
+								</div><!-- /.update-image -->
+						
+								<div class="update-content">
+									<h3>
+										<a href="profile/$username$profilemode">$full_name</a>
+									</h3>									
+                                             <!--<div class="headline"> -->
+									<h4>$headline $trail_headline</h4> 
+									<!-- </div> -->
+									<span>
+										<i class="ico ico-location"></i>$location
+									</span>
+                                            
+                                              <section>
+                                                <p>
+                                                        $summary $trail
+                                                  </p>                                                  
+                                            <div class="fadeout"></div>
+                                            </section>
+									<div class="update-share">
+										<ul>
+
+											<li>
+													<a href="#" onClick="javascript:popupwindow(\'https://www.facebook.com/sharer/sharer.php?app_id=$fb_app_id&sdk=joey&u=$page_url_to_share&display=popup&ref=plugin\',\'title\',\'650\',\'350\')" class="btn btn-fb-share"></a> 
+											</li>
+											
+											<li>
+													<a href="#" onClick="javascript:popupwindow(\'https://twitter.com/intent/tweet?text=$first_name $last_name&url=$page_url_to_share&via=launchleader\',\'title\',\'650\',\'350\')" class="btn btn-tw-tweet"></a>
+											</li>
+											<li>
+                                                    <a href="../social/get_short_url?tsu=$username"  class="btn btn-link-share modal-trigger"></a>
+											</li>
+										</ul>
+									</div><!-- /.update-share -->
+						
+                                        </div><!-- /.update-content -->
+                                        
+                                        <!--
+								<div class="update-actions">
+									<a href="profile/$username$profilemode" class="btn btn-medium">View Profile</a>
+								</div><!-- /.update-actions -->
+							</li><!-- /.update -->
+                            <!-- $available_profile -->
+EOM
+	}
+    
+    
+if($update_str_ideas eq '' and $update_str_profiles eq ''){
+    $update_str_ideas .=<<EOM;
+    <br>
+    <div align=center>
+    <h3>No active profile matches your search criteria at this time. <br>Please either broaden your search or check this page for new profiles soon.</h3>
+        </div>    <br>
+EOM
+}    
+
+my $section_action_str_ideas = "";
+
+if($available_idea  > $LIMIT_INX)
+{
+    $section_action_str_ideas .=<<EOM;
+                    <br>
+				<div class="section-actions" id="section-actions-ideas">
+					<a href="javascript:showMore(1)" class="btn btn-medium">Show More</a>
+				</div><!-- /.section-actions-ideas -->
+EOM
+}
+
+
+my $section_action_str_profile = "";
+
+if($available_profile  > $LIMIT_PROFILE)
+{
+    $section_action_str_profile .=<<EOM;
+                     <br>   
+				<div class="section-actions" id="section-actions-profiles">
+					<a href="javascript:showMore(0)" class="btn btn-medium">Show More</a>
+				</div><!-- /.section-actions-ideas -->
+EOM
+}
+
+#= cut
+# exit;
+# <INPUT TYPE="HIDDEN" NAME="account_id" VALUE="$Launchh::uid">
+
+=begin
+	uid
+	profile photo
+	first name
+	last name
+	username
+	headline
+	location
+	summary short
+	funded count
+	total fund amount
+	fb share 
+	tw share
+	funded amount 
+=cut
+
+
+if($LIMIT_PROFILE < $LIMIT_INX){
+    $update_str_ideas .= $update_str_profiles;
+    $update_str_profiles = $section_action_str_ideas = $section_action_str_profile = '';
+}
+my $str = << "EOM";
+        <script>
+                \$.autoComplete.defaults.maxHeight = 250;
+                alert(\$.autoComplete.defaults.maxHeight);
+            
+            function popupwindow(url, title, w, h) {
+              url = url.replace("#","%23") 	    
+              var left = (screen.width/2)-(w/2);
+              var top = (screen.height/2)-(h/2);
+              return window.open(url, title, 'toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=no, resizable=no, copyhistory=no, width='+w+', height='+h+', top='+top+', left='+left);
+            }         
+        </script>
+        
+		<div class="section section-home-updates section-discover">
+			<div class="shell">
+				<div class="section-head">
+					<div class="form form-filter">
+						<form action="/discover" method="post">
+							<div class="form-body">
+								<div class="form-row">
+                                             <input type="text" name="s_speciality" id="s_speciality" class="field" placeholder="Speciality" value="$s_speciality"/>                                    
+                                             <input type="text" name="s_school" id="s_school" class="field" placeholder="School"  value="$s_school"/>                                      
+                                             <input type="text" name="s_skill" id="s_skill" class="field" placeholder="Skill"  value="$s_skill"/>
+                                             
+                                             <!-- <input type="text" name="s_exp" id="s_exp" class="field" placeholder="Experience" value="$s_exp"/> -->
+                                             
+                                             <input type="text" name="s_industry" id="s_industry" class="field" placeholder="Industry" value="$s_industry"/> 
+                                             <input type="text" name="s_location" id="s_location" class="field" placeholder="Location" value="$s_location"/>
+                                             <input type="text" name="s_seeking" id="s_seeking" class="field" placeholder="Seeking" value="$s_seeking"/> <br>
+                                             
+                                             
+
+								</div><!-- /.form-row -->
+							</div><!-- /.form-body -->
+
+							<div class="form-actions">
+								<input name="loadindex_idea"  id="loadindex_idea" value="$LIMIT_INX" type=hidden />
+								<input name="loadindex_profile"  id="loadindex_profile" value="$LIMIT_PROFILE" type=hidden />
+								<input type="submit" value="Search" class="btn form-btn" />
+							</div><!-- /.form-actions -->
+						</form>
+					</div><!-- /.form form-filter -->
+				</div><!-- /.section-head -->
+
+				<div class="section-body">
+					<ol class="updates" id="no-slider-idea">
+					     $update_str_ideas 
+					</ol><!-- /.updates -->
+				</div><!-- /.section-body -->
+             $section_action_str_ideas -
+                  <!-- <br><hr><br> -->
+                    
+                    <div class="section-body">
+                        <ol class="updates" id="no-slider-profile">
+                               $update_str_profiles 
+                        </ol><!-- /.updates -- >
+                    </div><!-- /.section-body -->
+                               $section_action_str_profile    
+			</div><!-- /.shell -->
+		</div><!-- /.section section-home-updates -->
+        
+
+<script>
+            function showMore(idea_profile) {
+                // 1. Create XHR instance - Start
+                
+                var xhr;
+                if (window.XMLHttpRequest) {
+                    xhr = new XMLHttpRequest();
+                }
+                
+                else if (window.ActiveXObject) {
+                    xhr = new ActiveXObject("Msxml2.XMLHTTP");
+                }
+                else {
+                    throw new Error("Ajax is not supported by this browser");
+                }
+                
+                // 1. Create XHR instance - End
+                
+                // 2. Define what to do when XHR feed you the response from the server - Start
+                
+                xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                        if (xhr.status == 200 && xhr.status < 300) {
+                            // document.getElementById('loadix').innerHTML = xhr.responseText;
+                            if(xhr.responseText == "no-data"){
+                                    if(idea_profile == 1){
+                                        alert("No more profile found with IDEA!");
+                                        //\$("#section-actions-ideas").html('');
+                                    }
+                                    else{
+                                        alert("No more profile found!");
+                                        //\$("#section-actions-profiles").html('');
+                                    }
+                            }
+                            else{
+                                   if(idea_profile == 1){
+                                        \$('#no-slider-idea').append(xhr.responseText);
+                                        \$('#loadindex_idea').val(\$('#loadindex_idea').val() * 1  + $LOAD_LIMIT);
+                                    }      
+                                    else{
+                                        \$('#no-slider-profile').append(xhr.responseText);
+                                        \$('#loadindex_profile').val(\$('#loadindex_profile').val() * 1  + $LOAD_LIMIT);
+                                    }      
+                            }
+                        }
+                    }
+                }
+                // 2. Define what to do when XHR feed you the response from the server - Start
+
+                var loadindex = 0;
+                if(idea_profile == 1) {
+                    loadindex =  document.getElementById("loadindex_idea").value;
+                }
+                else {
+                    loadindex =  document.getElementById("loadindex_profile").value;
+                }
+                var s_exp = document.getElementById("s_exp").value;
+                var s_school = document.getElementById("s_school").value;
+                var s_speciality = document.getElementById("s_speciality").value;
+                var s_skill = document.getElementById("s_skill").value;
+                var s_location = document.getElementById("s_location").value;
+                var s_seeking = document.getElementById("s_seeking").value;
+                
+                var post_str = "loadindex=" + loadindex +"&loadlimit=" + $LOAD_LIMIT +"&idea_profile=" + idea_profile +"&s_exp=" + s_exp +"&s_school=" + s_school +"&s_speciality=" + s_speciality +"&s_skill=" + s_skill +"&s_location=" + s_location +"&s_seeking=" + s_seeking ;
+                
+                //alert(post_str);
+
+                // 3. Specify your action, location and Send to the server - Start 
+                xhr.open('POST', 'load-profile-short');
+                xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                xhr.send(post_str);
+                // 3. Specify your action, location and Send to the server - End
+          }
+
+
+    \$(document).ready(function(){
+            //alert(1);
+
+        // Setup maxHeight for IE6
+        //\$.autoComplete.defaults.maxHeight = 250;
+        //alert(\$.autoComplete.defaults.maxHeight);
+        // Autocomplete on User Supplied data
+        \$('input[name=s_industry]').autoComplete({
+            dataSupply: ['jane', 'john', 'doe', 'amy', 'alice', 'louis', 'liz', {value: 'mark'}, {value: 'merideth', display: 'Merideth Johnson'}]
+        });
+	
+        // Autocomplete on User Supplied data
+        \$('input[name=search6]').autoComplete({
+            dataSupply: ['jane', 'john', 'doe', 'amy', 'alice', 'louis', 'liz', {value: 'mark'}, {value: 'merideth', display: 'Merideth Johnson'}]
+        });        
+});  
+</script>
+
+EOM
+
+return $str;
+
+}
+
+
+sub print_header
+{
+   my $header = &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+#$user_header_str = " of ".$Launchh::account->{'account_name_first'} if($Launchh::account->{'account_name_first'} ne '');
+   my $rand = rand(10000);
+
+   
+   my $custom_css_js = ' Autocomplete Feature --> 
+     <link rel="stylesheet" type="text/css" href="/css/jquery.auto-complete.css">
+     <script type="text/javascript" charset="utf-8" src="/js/jquery.auto-complete.js"></script> 
+     <script type="text/javascript" charset="utf-8" src="/js/jquery.metadata.js"></script> 
+     <script type="text/javascript" charset="utf-8" src="/js/jquery-1.4.2.js"></script> 
+     <!-- Autocomplete Feature End';
+     
+     $header =~ s/XXXTITLEXXX/USER PROFILE/is;
+    $header =~ s/CUSTOM_CSS_JS/$custom_css_js/gs;
+
+   if($Launchh::uid ne ''){
+        $header =~ s/DASHBOARDSTR/<li><a href="..\/dashboard">My Dashboard<\/a><\/li>/is;   
+        $header =~ s/VIEWMYPROFILESTR/<li><a href="..\/dashboard">My Dashboard<\/a><\/li>/is;   
+        $header =~ s/SIGNUPSTR//is;
+        $header =~ s/<li class="separator">\s*<a href=".*?login">Login<\/a>/<li class="separator"><a href="..\/logout?pmode=$pmode">Logout<\/a>/is  if($pmode ne '');        
+        $header =~ s/<li class="separator">\s*<a href=".*?login">Login<\/a>/<li class="separator"><a href="..\/logout?$rand">Logout<\/a>/is ;        
+    }
+    else{
+        $header =~ s/DASHBOARDSTR//is;
+        if($pmode eq ''){ 
+            $header =~ s/SIGNUPSTR/<li class="signup"><a href=\"..\/signup\">Sign Up<\/a><\/li>/is;  
+          }
+          else{
+            $header =~ s/SIGNUPSTR/<li class="signup"><a href=\"..\/signup?pmode=$pmode\">Sign Up<\/a><\/li>/is;                
+          }
+	}
+    
+    if( $pmode ne '' && !defined $session->param("pmode") ){
+        $header =~ s/faq">/faq\?pmode=$pmode">/is;   
+        $header =~ s/login">/login\?pmode=$pmode">/is;   
+        $header =~ s/discover">/discover\?pmode=$pmode">/is;   
+        $header =~ s/privacy"/privacy\?pmode=$pmode"/is;   
+        $header =~ s/terms"/terms\?pmode=$pmode"/is;   
+    }
+=begin
+ $header .= "<input type='text' style='width:300px;' name='search6' />
+<script>
+	\$(document).ready(function(){
+		alert(1);
+
+        // Setup maxHeight for IE6
+        //\$.autoComplete.defaults.maxHeight = 250;
+        //alert(\$.autoComplete.defaults.maxHeight);
+        // Autocomplete on User Supplied data
+        \$('input[name=s_industry]').autoComplete({
+            dataSupply: ['jane', 'john', 'doe', 'amy', 'alice', 'louis', 'liz', {value: 'mark'}, {value: 'merideth', display: 'Merideth Johnson'}]
+        });
+	
+        // Autocomplete on User Supplied data
+        \$('input[name=search6]').autoComplete({
+            dataSupply: ['jane', 'john', 'doe', 'amy', 'alice', 'louis', 'liz', {value: 'mark'}, {value: 'merideth', display: 'Merideth Johnson'}]
+        });
+alert(1);
+        
+});  
+</script>";
+=cut
+
+   print $header;
+}
+
+sub print_footer
+{
+    
+   my $footer = &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+
+    if( $pmode ne '' && !defined $session->param("pmode") ){
+        $footer =~ s/privacy"/privacy\?pmode=$pmode"/is;   
+        $footer =~ s/terms"/terms\?pmode=$pmode"/is;   
+    }
+    
+    print $footer;
+}
+
+sub string_shorten 
+{
+	my $text = shift;
+	my $limit = shift;
+	my $linebreak = shift;
+    
+    my $tmp = substr($text,0,$limit);
+	#$tmp =~ s/\s+\w*$//g;	
+    $tmp =~ s/^\s+//;
+    $tmp =~ s/\s+$//;
+    
+	$text = $tmp;
+    
+    my $textlength = length($text);
+    
+    if( $textlength < ($limit - 10))
+    {
+        my $inx = 0; 
+        
+        $inx = floor ($textlength / $linebreak) * $linebreak;
+        while($inx < $limit) {
+            $text .= "<br>";
+            $inx = $inx + $linebreak;
+        }
+    }
+	
+	return $text;
+}
+
+
+sub trim
+{
+    my $str = shift;
+    
+    $str =~ s/^\s+//;
+    $str =~ s/\s+$//;
+    
+    return $str;
+}
+
+=begin 
+
+Specialty, Seeking
+Skill,
+Industry
+ 
+=cut

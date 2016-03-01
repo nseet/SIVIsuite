@@ -1,0 +1,1255 @@
+#!/usr/bin/perl
+
+#!D:/TOWORK/bin/xampp/perl/bin/perl.exe
+
+
+use lib '../cgi-bin';
+use lib '../util';
+#use Try::Tiny;
+use JSON;
+use Launchh;
+use strict;
+use POSIX qw(floor);
+use POSIX qw(ceil);
+use POSIX 'strftime';
+use Date::Calc qw(Delta_Days);
+
+$Launchh::HFILE = "empty-dashboard.html";
+
+my $stage = $Launchh::_query->param('stage') || 0;
+my $mode = $Launchh::_query->param('mode') || "all"; # || "grid";
+my $pmode = $Launchh::_query->param('pmode') || "launchleader";
+my $question_id = $Launchh::_query->param('question_id') || 0;
+
+my $element_id = $Launchh::_query->param('element_id') || 0;
+my $account_id = $Launchh::_query->param('aid') || 0;
+
+my $entry_id = $Launchh::_query->param('entry_id') || 0;
+my $entry_desc = $Launchh::_query->param('entry_desc');
+my $posted_entry_desc = $Launchh::_query->param('entry_desc');
+my $category_id = $Launchh::_query->param('category_id') || 0;
+
+my $progress = 0;
+my $u = $Launchh::_query->param('u');
+my $p = $Launchh::_query->param('p');
+my $e = $Launchh::_query->param('e');
+
+## Incomplete status are those who have profile without any campaigns
+my $incomplete_status = 79999;
+
+## Profiles with campaigns who are queued for approval by admin :: Right now confiscated
+my $onapproval_status = 80000;
+
+## Any account coming with this status. That means a general profile Usually 1st stage of account creation!!!
+my $account_status = 80001; 
+
+## Here comes the most desirable profiles: with campaigns and payment information
+my $project_status = 80002;
+
+## Well here goes the Launchleader admins!!!
+my $admin_status = 80003;
+
+## We need some status for unfortunate profiles! which our admins do not like!
+my $cancelled_status = 80004;
+
+## We are allwoing profiles for now who does not provide payment information and we will allow them to raise money! 
+##We need to acknowledge them that we have to notify them to push stripe information i.e: wpi: Without Payment Information
+my $campaign_wpi_status = 80005;
+
+## The status for successfully funded campaign: We are not using it right now
+my $funded_status = 80006;
+
+=begin 
+
+All :  All campaign from the start of LaunchLeader
+Approved Campaign : All approved campaign
+Ongoing Campaign : Alive campaign
+Funded Campaign: Complete funded campaign
+Pending: All Campaigns awaiting approval :: currently blocked as everything is being auto approved now
+
+Default Account Status  80001
+On Approval account status 80000
+Campaign Status 80002
+Rejected Status 80004
+=cut 
+
+
+if($e)
+{
+   print $Launchh::_query->header();
+   print &Launchh::html_header('empty-popup.html',$Launchh::HSTR);
+   print "Oops!  Incorrect email or password. <br><br> <a href='/login.html'>Click here to try again</a>.<br><br>
+   Or <a href='/reset?u=$u'>click here to Reset your password</a>.<br><br>
+   Or <a href='/join.html'>click here to Create a New Account</a>.<br><br>";
+   print &Launchh::html_footer('empty-popup.html',$Launchh::HSTR);
+   &Launchh::clean_exit();
+}
+
+&Launchh::do_check_login(1);
+print STDERR "1:u=$Launchh::u,p=$Launchh::p, username=$Launchh::username, uid=$Launchh::uid\n";
+&Launchh::select_account($Launchh::uid) if($Launchh::uid);
+&Launchh::update_account("account_accessed=NOW()") if($Launchh::uid);
+if($Launchh::uid)
+{
+   #&Launchh::update_account("account_note = 'connection_token: $connection_token',account_accessed=NOW()");
+}
+
+if($Launchh::u && $Launchh::p && !$Launchh::uid)
+{  
+#print STDERR "here: u=$Launchh::u,p=$Launchh::p, username=$Launchh::username,connection_token=$connection_token, uid=$Launchh::uid\n";
+   my $username_exists = &Launchh::count_table("account","WHERE account_username='$Launchh::u'");
+  
+  if(($Launchh::account->{'account_password'} == &Launchh::get_enc($Launchh::u,$Launchh::dbh) && $Launchh::account->{'account_password'} ne $p) ) #password is default and user is changing it; connection_token is enough 
+   {	
+	   #try same un/pwd
+	   #$Launchh::u = $u if($u && !$connection_token);
+	   $Launchh::passwordenc =  $Launchh::u; #&Launchh::get_enc($Launchh::u,$Launchh::dbh); 
+	   my $newpasswordenc = &Launchh::get_enc($p,$Launchh::dbh) if($p);
+       print STDERR "2: u=$Launchh::u,p=$Launchh::p, username=$Launchh::username, uid=$Launchh::uid\n";
+       &Launchh::do_check_login(1);
+	   print STDERR "3: u=$u,p=$p, username=$Launchh::username, uid=$Launchh::uid\n";
+
+	   if($Launchh::uid && $Launchh::account->{'account_status'} == $admin_status )
+	   {
+            &Launchh::update_account("account_password = '$newpasswordenc',account_accessed=NOW()");
+     	   	print "Location: dashboard?u=$u&p=$p\n\n";
+	   }
+   	   else
+   	   {
+      		print "Location: dashboard?u=$Launchh::u&e=1\n\n";  #login.html?u=$u\n\n"; incorrect pwd
+   	   }
+        &Launchh::clean_exit();
+#  }
+   }
+   else
+   {
+      print "Location: dashboard?u=$u&e=1\n\n";  #login.html?u=$u\n\n"; incorrect pwd
+      &Launchh::clean_exit();
+   }
+}
+elsif(!$Launchh::uid)
+{
+      print "Location: dashboard?e=2\n\n";  #login.html?u=$u\n\n";  no such user
+      &Launchh::clean_exit();
+}
+
+if($stage==0 || !$element_id) #grid
+{
+   print $Launchh::_query->header();
+   #print &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+   print_header();
+   print html_stage0();
+   print &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+}
+elsif($stage == 1) #campaign details
+{
+
+  # &get_progress();
+  
+   print $Launchh::_query->header();
+   #my $head = &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+   #$head =~ s/account_email/$Launchh::account->{'account_email'}/is; #for FK
+   #print $head;
+    print_header();
+    print html_stage1();
+    print &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+}
+
+elsif($stage == 2) #campaign disburse
+{
+  # &get_progress();
+   print $Launchh::_query->header();
+   #my $head = &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+   #print $head;
+   print_header();
+   print html_disburse();
+   print &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+}
+
+&Launchh::clean_exit();
+
+
+sub html_stage0
+{
+    #&Launchh::select_accounts("WHERE account_id='$account_id'");
+    #&Launchh::next_account();
+    
+    my ($all_class,$approved_class,$ongoing_class,$funded_class,$ready_class, $pending_class, $incomplete_class, $rejected_class, $ongoing_wpi_class);
+    
+    my @color_code = ("#a841b6","#f82023","#0195db","#00d770","#f4c700","#60c1ca","#fb8337","#389091","#f77c81","#ba6024","#e57d21","#e74b3b","#9b59b5","#3398da","#2dcb71","#f1c30f","#0ff1c3","#c30ff1","#0195db","#f82023","#a841b6","#00d770","#f4c700","#60c1ca","#fb8337","#fb8337","#389091","#f77c81","#ba6024","#ee4d45");
+    my $color_code_size = @color_code;
+    
+    my $modeStr = "MANAGE CAMPAIGNS";
+    my $noteStr = "";
+    my $account_filter_str = "AND account_partnercrumb='$pmode'";
+    my $select_str = "WHERE account_status < $campaign_wpi_status AND account_status >= $incomplete_status AND account_status!=$cancelled_status $account_filter_str ORDER BY account_name_first ASC";
+    
+    if($mode eq 'all'){
+        $all_class = "class=\"active\"";
+    }
+    elsif($mode eq 'approved'){
+        $modeStr = "APPROVED CAMPAIGNS";
+        $noteStr = "[You can Cancel or Fund Campaigns from here]";                        
+        $select_str = "WHERE account_status = $project_status $account_filter_str ORDER BY account_name_first ASC";     
+        $approved_class = "class=\"active\"";
+    }
+    elsif($mode eq 'ongoing'){
+        $modeStr = "LIVE/ACTIVE CAMPAIGNS";
+        $noteStr = "[Only Live or Open Campaigns]";                
+        $select_str = "WHERE account_status = $project_status $account_filter_str ORDER BY account_name_first ASC";             
+        $ongoing_class = "class=\"active\"";
+        
+    }
+    elsif($mode eq 'activewpi'){
+        $modeStr = "LIVE/ACTIVE CAMPAIGNS W/O Payment Information";
+        $noteStr = "[Live or Open Campaigns with Pending Stripe Information]";                
+        $select_str = "WHERE account_status = $campaign_wpi_status $account_filter_str ORDER BY account_name_first ASC";             
+        $ongoing_wpi_class= "class=\"active\"";
+    }
+    elsif($mode eq 'funded'){
+        $modeStr = "FUNDED CAMPAIGNS";
+        $noteStr = "[Projects which are already Funded]";        
+        $select_str = "WHERE (account_status = $campaign_wpi_status or account_status = $project_status) $account_filter_str ";     
+        $funded_class = "class=\"active\"";
+    }    
+    elsif($mode eq 'ready'){
+        $modeStr = "READY TO DISBURSE CAMPAIGNS";
+        $noteStr = "[Projects which funds are ready to be funded]";        
+        $select_str = "WHERE account_status = $project_status $account_filter_str ";     
+        $funded_class = "class=\"active\"";
+    }
+    elsif($mode eq 'pending'){
+        $modeStr = "PENDING PROJECTS";
+        $noteStr = "[Projects awaiting approval]";
+        $select_str = "WHERE account_status = $onapproval_status $account_filter_str ORDER BY account_name_first ASC";     
+        $pending_class = "class=\"active\"";
+    }    
+    elsif($mode eq 'rejected'){
+        $modeStr = "REJECTED PROJECTS/PROFILES";
+        $noteStr = "[Projects/Profiles which has been cancelled by Admin]";
+        $select_str = "WHERE account_status = $cancelled_status  $account_filter_str ORDER BY account_name_first ASC";     
+        $rejected_class = "class=\"active\"";
+    }
+    elsif($mode eq 'incomplete'){
+        $modeStr = "INCOMPLETE CAMPAIGNS";
+        $noteStr = "[Profiles without any Campaign]";
+        $select_str = "WHERE account_status = $incomplete_status $account_filter_str ORDER BY account_name_first ASC";     
+        $incomplete_class = "class=\"active\"";
+    }
+    
+    my $partner_dropdown = '
+    <div class="content-header clearfix layout-2">
+        <div class="custom-select layout-2">
+        <select name=range_selector id=range_selector onChange="javascript:loadPartners(this.value);">
+            <option value="launchleader">Select Partner</option>';
+    
+	&Launchh::select_account_partners();
+	while(&Launchh::next_account_partner()){
+        my $selected = "";
+        $selected = "selected" if($pmode eq $Launchh::account_partner->{'account_partner_crumb'});
+        $partner_dropdown .="  <option value=\"$Launchh::account_partner->{'account_partner_crumb'}\" $selected>$Launchh::account_partner->{'account_partner_name'}</option>\n";
+    }
+	
+    $partner_dropdown .='</select> </div> </div>';
+    
+    my $str = << "EOM";
+
+	<section class="headline">
+		<h2>$modeStr</h2>
+		<h5>$noteStr</h5>
+        
+	</section>
+	<section class="main">
+        <div class="shell">
+            	<div class="main-wrap clearfix">
+				<aside class="sidebar">                
+					<ul class="sidebar-nav">
+                    $partner_dropdown
+						<li><a $all_class  href="dashboard?$Launchh::HSTR&pmode=$pmode"><i class="ico ico-1"></i>All</a></li>
+						<li><a $approved_class href="dashboard?$Launchh::HSTR&mode=approved&pmode=$pmode"><i class="ico ico-2"></i>Approved</a></li>
+						<li><a $ongoing_class href="dashboard?$Launchh::HSTR&mode=ongoing&pmode=$pmode"><i class="ico ico-3"></i>Active</a></li>
+						<li><a $ongoing_wpi_class href="dashboard?$Launchh::HSTR&mode=activewpi&pmode=$pmode"><i class="ico ico-3"></i>Active W/O Stripe</a></li>
+						<li><a $funded_class href="dashboard?$Launchh::HSTR&mode=funded&pmode=$pmode"><i class="ico ico-4"></i>Funded</a></li>
+						<li><a $ready_class href="dashboard?$Launchh::HSTR&mode=ready&pmode=$pmode"><i class="ico ico-2"></i>Ready To Disburse</a></li>
+						<!-- <li><a $pending_class href="dashboard?$Launchh::HSTR&mode=pending&pmode=$pmode"><i class="ico ico-1"></i>Pending</a></li> -->
+						<li><a $rejected_class href="dashboard?$Launchh::HSTR&mode=rejected&pmode=$pmode"><i class="ico ico-1"></i>Rejected</a></li>
+						<li><a $incomplete_class href="dashboard?$Launchh::HSTR&mode=incomplete&pmode=$pmode"><i class="ico ico-1"></i>Incomplete</a></li>
+					</ul>
+				</aside>
+EOM
+
+      $str .= << "EOM";
+                <input type=hidden id=button_or_link value="0">
+			<div class="accordion">
+				<ul>
+EOM
+
+     my $col_inx = 0;
+     my $initialize_str = '';
+
+     
+     if($mode eq 'funded' or $mode eq 'ready'){
+         &Launchh::select_funded_accounts($select_str);
+     }
+     else{
+         &Launchh::select_accounts($select_str);
+     }
+     
+      while(&Launchh::next_account())
+      {
+        
+         my $str_project_head = '';
+         my $str_project_body = '';
+         my $str_project_footer = '';        
+         
+        #&Launchh::select_funding_details()
+          
+        my $cancel_count = 0;
+        my $element_count = 0;
+        my $fund_limit = 0;
+        my $account_id = $Launchh::account->{'account_id'};
+        my $account_status = $Launchh::account->{'account_status'};
+        
+        &Launchh::select_stripe_connect("WHERE account_id= '$account_id'");
+        &Launchh::next_stripe_connect();              
+        my $stripe_connect_id = $Launchh::stripe_connect_detail->{'stripe_connect_id'};
+        
+        &Launchh::select_element_details("WHERE account_id = '$account_id' AND element_detail_status = '1'" );
+        while(&Launchh::next_element_detail()){
+
+            &Launchh::select_elements("WHERE element_status=1 AND element.element_id = $Launchh::element_detail->{'element_id'}");
+            &Launchh::next_element();
+            if($Launchh::element->{'element_id'} eq '') {
+                next;
+            }
+            $fund_limit += $Launchh::element->{'element_amount'};
+        }
+        
+        my $current_fund = 0 ;
+        $current_fund = ceil(&Launchh::total_funded("WHERE funding_details.account_id = $account_id" )) if($account_id > 0);
+
+        my $fund_percentage_total = 0;
+        $fund_percentage_total = ceil ($current_fund / $fund_limit  * 100)  if($fund_limit > 0);          
+        
+         my $campaign_headline = "$Launchh::account->{'account_name_first'} $Launchh::account->{'account_name_last'}";
+         $campaign_headline = "$Launchh::account->{'account_desc'} by $Launchh::account->{'account_name_first'} $Launchh::account->{'account_name_last'}" if($Launchh::account->{'account_desc'} ne '');
+         
+         my $color_to_use = $color_code[($col_inx++) % $color_code_size];
+         
+         my $cancel_project_str = "";
+         #$cancel_project_str = "<input type=\"submit\" id=\"cancel_all_$account_id\" value=\" Cancel Project \" />" if($mode ne 'incomplete' and $mode ne 'pending');
+         $cancel_project_str = "<input type=\"submit\" id=\"cancel_all_$account_id\" value=\" Cancel Project \" onClick=\"javascript:controlcampaign($account_id, 'all');\"/>" if($mode eq 'approved' or $mode eq 'ongoing' or $mode eq 'activewpi');
+         $cancel_project_str = "<input type=\"submit\" id=\"cancel_all_$account_id\" value=\" Approve Project \" onClick=\"javascript:controlcampaign($account_id, 'all');\"/>" if($mode eq 'rejected' or $mode eq 'pending');
+
+         my $cancel_profile_str = "";
+         #$cancel_project_str = "<input type=\"submit\" id=\"cancel_all_$account_id\" value=\" Cancel Project \" />" if($mode ne 'incomplete' and $mode ne 'pending');
+         $cancel_profile_str = "<input type=\"submit\" id=\"cancel_profile_all_$account_id\" value=\" Reject Profile \" onClick=\"javascript:controlcampaign($account_id, 'allp');\"/>" if($mode eq 'incomplete');
+         $cancel_profile_str = "<input type=\"submit\" id=\"cancel_profile_all_$account_id\" value=\" Approve Profile \" onClick=\"javascript:controlcampaign($account_id, 'allp');\"/>" if($mode eq 'rejected' and  $stripe_connect_id eq '' );
+
+        my $release_project_fund_str = "";
+        #$release_project_fund_str = "<input type=\"submit\" value=\"Disburse Fund\" onClick='javascript:controlcampaign(\"dashboard?$Launchh::HSTR&stage=2&aid=$Launchh::account->{'account_id'}\", \"disburse\"); return false;'>" if($fund_percentage_total == '100' and ($mode eq 'approved' or $mode eq 'ongoing'));
+       
+       
+        my $fund_project_raised_str = "";
+        $fund_project_raised_str = "[$fund_percentage_total% Raised]" if($mode ne 'incomplete' and $mode ne 'pending');
+        $fund_project_raised_str = "[No Campaign]" if($mode ne 'incomplete' and $mode ne 'pending' && $fund_percentage_total == 0);
+        #$fund_project_raised_str = "[$fund_percentage_total% Raised]" if($mode eq 'approved' or $mode eq 'ongoing');
+        
+        my $headline_length_limit = 95;         
+        my $trail_headline = '';
+        if(length($campaign_headline) > $headline_length_limit)
+        {
+            $trail_headline = '...';
+        }         
+        
+        $campaign_headline = string_shorten($campaign_headline, $headline_length_limit, 200);
+
+        $str_project_head = << "EOM";
+					<li  style="background-color: $color_to_use;">
+						<a href="#" class="expandable" onClick='javascript:ccparent(1, $account_id)' id="parenthref_$account_id">$campaign_headline $trail_headline&nbsp;&nbsp;&nbsp;$fund_project_raised_str <span class="exp-button">$cancel_profile_str $cancel_project_str $release_project_fund_str</span><i class="exp-ico"></i></a> 
+						<div class="exp-content scrollable scrollable306">
+							<ul>
+EOM
+        my $is_ready_to_disburse = 0;
+        &Launchh::select_element_details("WHERE account_id = $Launchh::account->{'account_id'}" );
+        while(&Launchh::next_element_detail()){
+
+            &Launchh::select_elements("WHERE element_status !=0 AND element.element_id = $Launchh::element_detail->{'element_id'}");
+            &Launchh::next_element();
+            if($Launchh::element->{'element_id'} eq '') {
+                next;
+            }
+            
+            my $fund_raised_for_elements = 0;        
+            $fund_raised_for_elements = ceil(&Launchh::total_funded("WHERE funding_details.account_id = $account_id AND funding_details.element_id = $Launchh::element->{'element_id'}" ));
+
+            my $fund_percentage = 0;
+            $fund_percentage = ceil ($fund_raised_for_elements /$Launchh::element->{'element_amount'} * 100) if($Launchh::element->{'element_amount'} > 0);
+                        
+            my $cancel_id = "cancel_$account_id"."_".$Launchh::element->{'element_id'};
+            my $cancel_campaign_str = "";
+            $element_count++;
+            my $disabled_str = '';
+            #$disabled_str = 'disabled' if($Launchh::element_detail->{'element_detail_disbursed'} == 1 );
+            
+            #if($Launchh::element_detail->{'element_detail_status'} == 1 and ($mode ne 'incomplete' and $mode ne 'pending')){
+            if($Launchh::element_detail->{'element_detail_status'} == 1 and ($mode eq 'approved' or $mode eq 'ongoing' or $mode eq 'activewpi')){
+                
+                $cancel_campaign_str = "<input type=\"submit\" value=\"Cancel Funding $Launchh::element->{'element_name'}\" id= \"$cancel_id\" $disabled_str onClick=\"javascript:controlcampaign($account_id, $Launchh::element->{'element_id'}, 2, '$Launchh::element->{'element_name'}','$Launchh::element_detail->{'element_detail_id'}');\"/>" ;# if($fund_percentage != '100');
+                $cancel_count++;
+            }
+            $cancel_campaign_str = "<input type=\"submit\" value=\"Approve Funding $Launchh::element->{'element_name'}\" id= \"$cancel_id\" onClick=\"javascript:controlcampaign($account_id, $Launchh::element->{'element_id'}, 1, '$Launchh::element->{'element_name'}', '$Launchh::element_detail->{'element_detail_id'}');\"/>"  if($Launchh::element_detail->{'element_detail_status'} == 2 and ($mode ne 'incomplete' and $mode ne 'pending'));
+
+            my $release_campaign_fund_str = "";
+            $release_campaign_fund_str = "<input type=\"submit\" value=\"Disburse Fund\" onClick='javascript:controlcampaign(\"dashboard?$Launchh::HSTR&stage=2&element_id=$Launchh::element->{'element_id'}&aid=$Launchh::account->{'account_id'}&pmode=$pmode\", \"disburse\"); return false;'>" if($fund_percentage >= '100' and ($mode eq 'approved' or $mode eq 'ongoing' or $mode eq 'funded'or $mode eq 'ready') and ($Launchh::account->{'account_status'} == $project_status) );
+            $release_campaign_fund_str = "<input type=\"submit\" value=\"Already Funded\" onClick='javascript:controlcampaign(\"dashboard?$Launchh::HSTR&stage=2&element_id=$Launchh::element->{'element_id'}&aid=$Launchh::account->{'account_id'}&pmode=$pmode\", \"disburse\"); return false;'>" if($fund_percentage >= '100' and ($mode eq 'approved' or $mode eq 'ongoing' or $mode eq 'funded' or $mode eq 'ready') and ($Launchh::account->{'account_status'} == $project_status) and  $Launchh::element_detail->{'element_detail_disbursed'} == 1);
+            #$release_project_fund_str = "<a href=\"../ajax/disburse-input-popup?uname=zulker&from=admin\" class=\"btn btn-large modal-trigger\">Disburse Fund</a> " if($fund_percentage == 100 and ($mode eq 'approved' or $mode eq 'ongoing'));
+            
+            $is_ready_to_disburse = 1 if($release_campaign_fund_str ne '');
+            
+            my $fund_campaign_raised_str = "";
+            $fund_campaign_raised_str = "[$fund_percentage% Raised]" if( $mode ne 'incomplete');
+            
+           
+            $str_project_body .= << "EOM";
+								<li style="background-color: #ffffff;">
+									<!-- <a class="clearfix" href="#" onClick='javascript:ccparent("dashboard?$Launchh::HSTR&stage=1&element_id=$Launchh::element->{'element_id'}&aid=$Launchh::account->{'account_id'}&pmode=$pmode"); return false;'> -->
+									 <a class="clearfix" href="#" onClick='return false;'> 
+										<span class="left"> $Launchh::element->{'element_name'}</span>	 									
+										<span class="right"> &nbsp;&nbsp;&nbsp;$fund_campaign_raised_str $cancel_campaign_str $release_campaign_fund_str</span></span>										
+									</a>
+								</li>
+EOM
+        
+    }
+        #$Launchh::element->{'element_amount'}#end while next_question
+
+	 $str_project_footer .= << "EOM";
+     
+							</ul>
+                                    <input type=hidden id="cancel_$account_id" value="$cancel_count">
+                                    <input type=hidden id="element_$account_id" value="$element_count">
+
+						</div>
+					</li>
+
+EOM
+        if($cancel_count == 0 && $element_count != 0){
+             $initialize_str .= "\$(\"#cancel_all_$account_id\").val(\" Approve Project \");";
+        }
+        elsif($element_count == 0){
+            $initialize_str .= "\$(\"#cancel_all_$account_id\").hide();";
+        }
+
+        if( $mode eq 'ready'){
+            $str .= $str_project_head.$str_project_body.$str_project_footer if($is_ready_to_disburse);
+        }
+        else{
+            $str .= $str_project_head.$str_project_body.$str_project_footer;
+        }
+        
+    }#end next_account
+
+	   $str .= << "EOM";
+       
+				</ul>
+			</div>
+EOM
+
+   
+   $str .= << "EOM";
+		</div>
+		</div>
+</section>
+
+<script>
+            function ccparent(href2, id){
+
+                if(\$("#button_or_link").val() == 1){
+                        \$("#button_or_link").val(0);
+                        return false;
+                    }
+
+                if(href2 == 1){
+                         return false;
+                }
+                else{
+                         window.location.href = href2;
+                }
+            }
+            
+            function  controlcampaign(aid, eid , sts, elename, edid){  
+                    \$("#button_or_link").val(1);
+                    if(eid == 'disburse'){
+                        window.location.href = aid;
+                        return false;
+                    }
+
+                    if(eid == 'all'){
+                        //\$("#parenthref_"+aid).removeClass("expandable");
+                        \$("#cancel_all_"+aid).attr('disabled','disabled');
+                         var str =  \$("#cancel_all_"+aid).val();  
+                         
+                        // Button is clicked to Cancel Project
+                        if(str.indexOf("Cancel") >= 0){
+                                \$("#cancel_all"+"_"+aid).val(" Approve Project ");
+                                sts = 2;
+                        }
+                    
+                        // Button is clicked to Approve Project
+                        else if(str.indexOf("Approve") >= 0){
+                                \$("#cancel_all"+"_"+aid).val(" Cancel Project ");
+                                sts = 1;
+                        }
+                    }
+                    else if(eid == 'allp'){
+                        \$("#cancel_profile_all_"+aid).attr('disabled','disabled');
+                         var str =  \$("#cancel_profile_all_"+aid).val();  
+                         
+                        // Button is clicked to Cancel Project
+                        if(str.indexOf("Reject") >= 0){
+                                \$("#cancel_profile_all"+"_"+aid).val(" Approve Profile ");
+                                sts = 2;
+                        }
+                    
+                        // Button is clicked to Approve Project
+                        else if(str.indexOf("Approve") >= 0){
+                                \$("#cancel_profile_all"+"_"+aid).val(" Reject Profile ");
+                                sts = 1;
+                        }
+                    }
+                    else
+                    {
+                    
+                        var str = \$("#cancel"+"_"+aid+"_"+eid).val();
+                        // Disabling the button for avoiding multiple click
+                         \$("#cancel"+"_"+aid+"_"+eid).attr('disabled','disabled');;
+                    
+                        // Button is clicked to approve Funding
+                        if(str.indexOf("Cancel") >= 0){
+                                \$("#cancel_"+aid).val((\$("#cancel_"+aid).val()) * 1 - 1);
+                        
+                                if(\$("#cancel_"+aid).val() == 0){
+                                    \$("#cancel_all"+"_"+aid).val(" Approve Project ");
+                                }
+                                sts = 2;
+                        }
+                    
+                        // Button is clicked to cancel Funding
+                        else if(str.indexOf("Approve") >= 0){
+                                \$("#cancel_"+aid).val((\$("#cancel_"+aid).val()) * 1 + 1);
+                                \$("#cancel_all"+"_"+aid).val(" Cancel Project ");
+                                sts = 1;
+                        }
+                    } 
+                    
+
+                 \$.ajax(
+                    {
+                        type: 'POST',
+                        cache: false,
+                        dataType: 'html',                    
+                        url: 'manage-campaign',
+                        data: {account_id   :  aid,   element_id : eid,   status: sts, edid : edid},
+                        success: function(data)
+                        {
+                             if (data && data.error && data.errorno)
+                             {
+                                   // there is an application-level error. Hande it.
+                                   // ...
+                                   return;
+                             }
+                             
+                            if(eid == 'all'){
+                                    \$("#cancel_all_"+aid).removeAttr('disabled');
+                            }
+                            else if(eid == 'allp'){
+                                    \$("#cancel_profile_all_"+aid).removeAttr('disabled');
+                            }
+                            else{
+                                     if(sts == 1){
+                                        \$("#cancel"+"_"+aid+"_"+eid).val("Cancel Funding "+elename);
+                                        alert("Funding "+elename + " approved");
+                                     }
+                                     else if(sts == 2){
+                                        \$("#cancel"+"_"+aid+"_"+eid).val("Approve Funding "+elename);
+                                         alert("Funding "+elename + " cancelled");
+                                     }
+                                     
+                                     \$("#cancel"+"_"+aid+"_"+eid).removeAttr('disabled');
+                            }
+                             // do something
+                             
+                        }
+                    });                 
+                    return false;
+          };
+          
+          \$(document).ready(function() {
+                    $initialize_str
+           } );
+
+        function loadPartners(value){
+            var locationStr = "dashboard?u=admin\@launchh.com&p=.vXne5dtTKEP."+"&pmode="+value;
+            location.href=locationStr;
+        }
+        
+</script>
+    
+EOM
+
+   return $str;
+   
+}
+
+#http://launchh.com/admin/dashboard?u=admin@launchh.com&p=.vXne5dtTKEP.&stage=1&element_id=1&aid=2123
+sub html_stage1
+{
+    
+    &Launchh::select_accounts("WHERE account_id='$account_id'");
+    &Launchh::next_account();
+
+    my $first_name = $Launchh::account->{'account_name_first'};
+    my $last_name = $Launchh::account->{'account_name_last'}; 
+    my $headline = $Launchh::account->{'account_desc'};
+    my $username = $Launchh::account->{'account_username'};
+
+
+    my @detailArr;
+    &Launchh::select_details("WHERE detail_type=2 AND detail_status=1 AND detail_name NOT LIKE 'Idea-%' ORDER BY CAST(detail_note AS DECIMAL(5,1))");
+    while(&Launchh::next_detail())
+    {
+       &Launchh::select_question($Launchh::detail->{'detail_desc'});
+       
+       my $question_limit = $Launchh::question->{'question_limit'};
+       my $detail_note = $Launchh::detail->{'detail_note'}  ;
+
+       #select user's previous answer, if any
+       &Launchh::select_account_details("WHERE account_id='$account_id' AND detail_id=$Launchh::detail->{'detail_id'} AND account_detail_status=1 ORDER BY account_detail_id desc LIMIT 1");
+       &Launchh::next_account_detail();
+   
+       my $detail_value = $Launchh::account_detail->{'account_detail_desc'};
+       my $detail_id = $Launchh::detail->{'detail_id'};
+       
+       $detailArr[$detail_id] = $detail_value;
+    }
+
+    my $college = $detailArr[16];
+    my $experience= $detailArr[43];
+    my $focus= $detailArr[13];
+    my $industry1= $detailArr[14];
+    my $industry2= $detailArr[34];
+    my $industry3= $detailArr[35];
+    my $profile_photo= $detailArr[25];
+    my $profile_video= $detailArr[26];
+    my $seeking= $detailArr[24];
+    my $skill1= $detailArr[17];
+    my $skill2= $detailArr[22];
+    my $skill3= $detailArr[23];
+    my $speciality= $detailArr[12];
+    my $summary= $detailArr[27];
+    my $facebook= $detailArr[46];
+    my $twitter= $detailArr[47];
+
+    $summary =~ s/\n+/<br>/g;
+    $summary =~ s/\r+/<br>/g;
+    $summary =~ s/<br><br>/<br>/g;
+
+   #&Launchh::read_question();
+   #&Launchh::select_question($Launchh::question->{'question_id'});
+    my $cur_date = POSIX::strftime('%Y-%m-%d %H:%M:%S', localtime);
+    my ($year2, $month2, $day2, $hour2, $min2, $sec2) = $cur_date =~ /^(\d\d\d\d)\-(\d\d)-(\d\d)\s+(\d\d)\:(\d\d)\:(\d\d)/;
+
+    my $default_milestone = $Launchh::DEFAULT_MILESTONE;
+    my $toolTipHead = "";
+    my $fund_limit = 0;
+    &Launchh::select_element_details("WHERE account_id = '$account_id'" );
+    while(&Launchh::next_element_detail()){
+
+        &Launchh::select_elements("WHERE element_status=1 AND element.element_id = $Launchh::element_detail->{'element_id'}");
+        &Launchh::next_element();
+        if($Launchh::element->{'element_id'} eq '') {
+            next;
+        }
+        $fund_limit += $Launchh::element->{'element_amount'};
+    }
+    
+    my $current_fund = 0 ;
+    $current_fund = ceil(&Launchh::total_funded("WHERE funding_details.account_id = $account_id" )) if($account_id > 0);
+
+    my $fund_percentage_total = 0;
+    $fund_percentage_total = ceil ($current_fund / $fund_limit  * 100)  if($fund_limit > 0);
+
+    &Launchh::select_elements("WHERE element_status=1 AND element.element_id = $element_id");
+    &Launchh::next_element();
+   
+    my $first_funding_date = &Launchh::first_funding_date($account_id,$element_id);
+    
+    my ($year1, $month1, $day1, $hour1, $min1, $sec1) = $first_funding_date =~ /^(\d\d\d\d)\-(\d\d)-(\d\d)\s+(\d\d)\:(\d\d)\:(\d\d)/;
+    my $funding_day_diff = 0;        
+    $funding_day_diff = Delta_Days( $year1, $month1, $day1,$year2, $month2, $day2 ) if($year1 ne '');
+    
+  
+    if($funding_day_diff <= $default_milestone && $first_funding_date != 0){
+        my $daydiff = ($default_milestone  + 1 - $funding_day_diff);
+        $daydiff = $default_milestone if($daydiff > $default_milestone);
+        $daydiff .= " day";
+        $daydiff .= "s" if($daydiff > 1);
+        $toolTipHead  = "$daydiff remaining to reach the Milestone.";
+    }
+        
+    my $fund_raised_for_elements = 0;        
+    $fund_raised_for_elements = ceil(&Launchh::total_funded("WHERE funding_details.account_id = $account_id AND funding_details.element_id = $element_id" ));
+    my $fund_percentage = 0;
+    $fund_percentage = ceil ($fund_raised_for_elements /$Launchh::element->{'element_amount'} * 100) if($Launchh::element->{'element_amount'} > 0);
+    #$fund_limit += $Launchh::element->{'element_amount'};
+    my $element_name = $Launchh::element->{'element_name'};
+    #$element_name =~ s/([^^A-Za-z0-9\-_.!~*'()])/ sprintf "%%%0x", ord $1 /eg;
+ 
+    my $remaining_trail = $Launchh::element->{'element_amount'} * 1 - $fund_raised_for_elements * 1;
+    
+    if($remaining_trail * 1 == 0){
+        $toolTipHead = 'Entrepreneur reached the Milestone';
+    }
+    
+    elsif($funding_day_diff > $default_milestone){
+        $toolTipHead = 'Entrepreneur failed to reach the Milestone for this';
+    }
+ 
+   
+   my $yt_link = "https://www.youtube.com/watch?v=3f7l-Z4NF70";
+   $yt_link  = $profile_video if($profile_video ne '');   
+
+   my $ytembed;
+   if(
+	$yt_link =~ /youtube.*?v=(.*?)$/is || $yt_link =~ /youtu.be.(.*?)$/is )
+   {
+	$ytembed = "//www.youtube.com/embed/$1";
+   }
+   $ytembed .= "?disablekb=1&controls=1&showinfo=0&iv_load_policy=3&cc_load_policy=0&modestbranding=1&rel=0&autoplay=0&start=$Launchh::video->{'video_start'}&end=$Launchh::video->{'video_end'}";
+
+   my $str = << "EOM";
+
+
+$profile_video
+	<section class="headline">
+            <div class="profile-head">
+                        <h4> Manage Campaign of $first_name  $last_name</h4> 
+                            <h6>Project Headline <i>$headline</i></h6>
+                            <span>
+                                    <i class="ico ico-location"></i>Location: $Launchh::account->{'account_phone'}
+                            </span>
+            </div><!-- /.profile-head -->
+		<h3> $element_name</h3> 
+	</section>
+	<section class="main">
+
+		<div class="shell">
+
+			<div class="question-wrap">
+				<div class="video-holder">
+					<iframe width="600" height="360" src="$ytembed" frameborder="0" allowfullscreen></iframe>
+				</div>
+
+				<div class="entry">
+					<p>$summary</p>
+EOM
+
+
+$str .= << "EOM";
+                    </div>
+			</div><!-- /.question-wrap -->
+EOM
+
+my $approve_or_terminate = "Terminate $element_name";
+my $fund_ready_or_not = "Release Fund for $element_name";
+
+   $str .= << "EOM";
+   
+          </div>
+		<section class="timer">
+              <form action="/challenge" method="post">
+					$Launchh::HIDDEN
+					<input type="hidden" name="stage" value="1">
+					<input type="hidden" name="mode" value="list">
+					<input type="hidden" name="element_id" value="$element_id">
+                        <input type="hidden" name="account_id" value="$account_id">
+                
+			<h2>ACTION</h2>
+			<input type="submit" name="status_action" value="$approve_or_terminate" class="btn-save fk-button-3">
+			<input type="submit" name="fund_action" value="$fund_ready_or_not" class="btn-save fk-button-3">
+                <a href="../ajax/send-message?uname=$username&from=admin" class="btn btn-large modal-trigger">message</a> 
+                <br>
+                <br>
+			<h2>PROGRESS on $element_name</h2>
+			<div class="timer-track"  title='$toolTipHead'><span style="width:$fund_percentage\%"></span></div>
+            $fund_percentage\% Raised of Total \$$Launchh::element->{'element_amount'}
+            <br><br>
+
+			<h2>OVERALL PROGRESS</h2>
+			<div class="timer-track"  title='$toolTipHead'><span style="width:$fund_percentage_total\%"></span></div>
+            $fund_percentage_total\% Raised of Total \$$fund_limit
+            <br>
+            <br>
+	
+   			<input type="submit" name="status_action_all" value="Terminate Campaign" class="btn-save fk-button-3">
+			<input type="submit" name="fund_action_all" value="Fund Complete Campaign" class="btn-save fk-button-3">
+    </form>        
+	</section>        
+    </section>
+
+EOM
+
+return $str;
+
+}
+
+sub html_disburse
+{
+    
+    &Launchh::select_accounts("WHERE account_id='$account_id'");
+    &Launchh::next_account();
+
+    my $first_name = $Launchh::account->{'account_name_first'};
+    my $last_name = $Launchh::account->{'account_name_last'}; 
+    my $headline = $Launchh::account->{'account_desc'};
+    my $username = $Launchh::account->{'account_username'};
+
+=begin
+    my @detailArr;
+    &Launchh::select_details("WHERE detail_type=2 AND detail_status=1 AND detail_name NOT LIKE 'Idea-%' ORDER BY CAST(detail_note AS DECIMAL(5,1))");
+    while(&Launchh::next_detail())
+    {
+       &Launchh::select_question($Launchh::detail->{'detail_desc'});
+       
+       my $question_limit = $Launchh::question->{'question_limit'};
+       my $detail_note = $Launchh::detail->{'detail_note'}  ;
+
+       #select user's previous answer, if any
+       &Launchh::select_account_details("WHERE account_id='$account_id' AND detail_id=$Launchh::detail->{'detail_id'} AND account_detail_status=1 ORDER BY account_detail_id desc LIMIT 1");
+       &Launchh::next_account_detail();
+   
+       my $detail_value = $Launchh::account_detail->{'account_detail_desc'};
+       my $detail_id = $Launchh::detail->{'detail_id'};
+       
+       $detailArr[$detail_id] = $detail_value;
+    }
+
+    my $college = $detailArr[16];
+    my $experience= $detailArr[43];
+    my $focus= $detailArr[13];
+    my $industry1= $detailArr[14];
+    my $industry1= $detailArr[14];
+    my $industry2= $detailArr[34];
+    my $industry3= $detailArr[35];
+    my $profile_photo= $detailArr[25];
+    my $profile_video= $detailArr[26];
+    my $seeking= $detailArr[24];
+    my $skill1= $detailArr[17];
+    my $skill2= $detailArr[22];
+    my $skill3= $detailArr[23];
+    my $speciality= $detailArr[12];
+    my $summary= $detailArr[27];
+    my $facebook= $detailArr[46];
+    my $twitter= $detailArr[47];
+
+    $summary =~ s/\n+/<br>/g;
+    $summary =~ s/\r+/<br>/g;
+    $summary =~ s/<br><br>/<br>/g;
+=cut
+   #&Launchh::read_question();
+   #&Launchh::select_question($Launchh::question->{'question_id'});
+    my $cur_date = POSIX::strftime('%Y-%m-%d %H:%M:%S', localtime);
+    my ($year2, $month2, $day2, $hour2, $min2, $sec2) = $cur_date =~ /^(\d\d\d\d)\-(\d\d)-(\d\d)\s+(\d\d)\:(\d\d)\:(\d\d)/;
+
+
+    my $default_milestone = $Launchh::DEFAULT_MILESTONE;
+    my $toolTipHead = "";
+    my $fund_limit = 0;
+    
+    &Launchh::select_element_details("WHERE account_id = '$account_id'" );
+    while(&Launchh::next_element_detail()){
+
+        &Launchh::select_elements("WHERE element_status=1 AND element.element_id = $Launchh::element_detail->{'element_id'}");
+        &Launchh::next_element();
+        if($Launchh::element->{'element_id'} eq '') {
+            next;
+        }
+        $fund_limit += $Launchh::element->{'element_amount'};
+    }
+    
+    my $current_fund = 0 ;
+    $current_fund = ceil(&Launchh::total_funded("WHERE funding_details.account_id = $account_id" )) if($account_id > 0);
+
+    my $fund_percentage_total = 0;
+    $fund_percentage_total = ceil ($current_fund / $fund_limit  * 100)  if($fund_limit > 0);
+
+    &Launchh::select_elements("WHERE element_status=1 AND element.element_id = $element_id");
+    &Launchh::next_element();
+   
+    my $first_funding_date = &Launchh::first_funding_date($account_id,$element_id);
+    
+    my ($year1, $month1, $day1, $hour1, $min1, $sec1) = $first_funding_date =~ /^(\d\d\d\d)\-(\d\d)-(\d\d)\s+(\d\d)\:(\d\d)\:(\d\d)/;
+    my $funding_day_diff = 0;        
+    $funding_day_diff = Delta_Days( $year1, $month1, $day1,$year2, $month2, $day2 ) if($year1 ne '');
+    
+  
+    if($funding_day_diff <= $default_milestone && $first_funding_date != 0){
+        my $daydiff = ($default_milestone  + 1 - $funding_day_diff);
+        $daydiff = $default_milestone if($daydiff > $default_milestone);
+        $daydiff .= " day";
+        $daydiff .= "s" if($daydiff > 1);
+        $toolTipHead  = "$daydiff remaining to reach the Milestone.";
+    }
+        
+    my $fund_raised_for_elements = 0;        
+    $fund_raised_for_elements = ceil(&Launchh::total_funded("WHERE funding_details.account_id = $account_id AND funding_details.element_id = $element_id" ));
+    my $fund_percentage = 0;
+    $fund_percentage = ceil ($fund_raised_for_elements /$Launchh::element->{'element_amount'} * 100) if($Launchh::element->{'element_amount'} > 0);
+    #$fund_limit += $Launchh::element->{'element_amount'};
+    my $element_name = $Launchh::element->{'element_name'};
+    #$element_name =~ s/([^^A-Za-z0-9\-_.!~*'()])/ sprintf "%%%0x", ord $1 /eg;
+ 
+    my $remaining_trail = $Launchh::element->{'element_amount'} * 1 - $fund_raised_for_elements * 1;
+    
+    if($remaining_trail * 1 == 0){
+        $toolTipHead = 'Entrepreneur reached the Milestone';
+    }
+    
+    elsif($funding_day_diff > $default_milestone){
+        $toolTipHead = 'Entrepreneur failed to reach the Milestone for this';
+    }
+ 
+=begin   
+   my $yt_link = "https://www.youtube.com/watch?v=3f7l-Z4NF70";
+   $yt_link  = $profile_video if($profile_video ne '');   
+
+   my $ytembed;
+   if(
+	$yt_link =~ /youtube.*?v=(.*?)$/is || $yt_link =~ /youtu.be.(.*?)$/is )
+   {
+	$ytembed = "//www.youtube.com/embed/$1";
+   }
+   $ytembed .= "?disablekb=1&controls=1&showinfo=0&iv_load_policy=3&cc_load_policy=0&modestbranding=1&rel=0&autoplay=0&start=$Launchh::video->{'video_start'}&end=$Launchh::video->{'video_end'}";
+=cut   
+   my $trailfor = 5.0;
+
+   my $str = << "EOM";
+<section class="headline">
+            <div class="profile-head">
+                        <h4>Disburse fund to $first_name  for his campaign <i>$element_name</i></h4> 
+                            <h6>Project Headline <i>$headline</i></h6>
+                            <span>
+                                    <i class="ico ico-location"></i>Location: $Launchh::account->{'account_phone'}
+                            </span>
+            </div><!-- /.profile-head -->
+	</section>
+	<section class="main">
+
+		<div class="shell">
+
+			<div class="form form-profile">
+                        <div id="disbursed_status"></div>
+
+            
+EOM
+
+my $already_captured = &Launchh::card_already_processed($account_id, $element_id, 'captured');
+my $already_authorized = &Launchh::card_already_processed($account_id, $element_id, 'authorized');
+my $pledge_count  = &Launchh::pledge_count($account_id, $element_id);
+
+print STDERR " already_authorized [$already_authorized] already_captured [$already_captured]";
+
+if($already_captured ){
+    $str.=<<EOM;
+                     <p align=center><b>Fund has been Disbursed for this campaign already</b></p>
+                     <br>
+                     <br>
+EOM
+}
+elsif($Launchh::account->{'account_status'} == $project_status){
+
+if( $already_authorized + $already_captured == 0){
+        $str.=<<EOM;
+                <div id="application_fee_status"><p>The Default Collection FEE is 5%. Adjust below if you want</p></div>
+                    <div class="form-body clearfix">
+                        <form onsubmit="return goThroughPayment();">
+                            <div class="form-row">
+                            <div class="form-controls">        
+                                <div id="disburse_action_status">
+                                            <span id="application_fee_span"><input class="field" type="number" id="custom-disburse-amount" placeholder="$trailfor" value="$trailfor" min="0.00"  max="$trailfor" step="0.50"/>&nbsp; \%</span><br><br>
+                                            <input type="submit" id="action_authorize" value="Authorize" class="btn btn-medium" onClick="javascript:actionSetter('authorize');"/>
+                                            <input type="submit" id="action_reauthorize" value="Re-Authorize" disabled class="btn-medium-disabled" onClick="javascript:actionSetter('reauthorize');"/> 
+                                            <input type="submit" id="action_reauthorize_all" value="Re-Authorize All" disabled class="btn-medium-disabled" onClick="javascript:actionSetter('reauthorize_all');"/> 
+                                            <input type="submit" id="action_disburse" value="Disburse" disabled class="btn-medium-disabled" onClick="javascript:actionSetter('capture');"/>
+                                            <span id="action_linebreak" style="visibility:hidden;"><br><br></span>
+                                            <input type="submit" id="action_force_disburse" value="Force Disburse" disabled class="btn-medium-disabled" onClick="javascript:actionSetter('force_disburse');"/>
+                                            <input type="submit" id="action_remove_failed" value="Remove Failed" disabled class="btn-medium-disabled" onClick="javascript:actionSetter('remove_declined');"/>                                      
+                                </div>                 
+
+EOM
+    }
+    elsif($already_authorized == $pledge_count){
+        $str.=<<EOM;
+                <div id="application_fee_status"><p>The Default Collection FEE is 5%. Adjust below if you want</p></div>
+                <div class="form-body clearfix">
+                        <form onsubmit="return goThroughPayment();">
+                            <div class="form-row">
+                            <div class="form-controls">     
+                                <div id="disburse_action_status">            
+                                        <span id="application_fee_span"><input class="field" type="number" id="custom-disburse-amount" placeholder="$trailfor" value="$trailfor" min="0.00"  max="$trailfor" step="0.50"/>&nbsp; \%</span><br><br>
+                                        <input type="submit"  id="action_authorize" value="Authorize" disabled class="btn-medium-disabled" onClick="javascript:actionSetter('authorize');"/> 
+                                        <input type="submit"  id="action_reauthorize" value="Re-Authorize" disabled class="btn-medium-disabled" onClick="javascript:actionSetter('reauthorize');"/>
+                                        <input type="submit"  id="action_reauthorize_all" value="Re-Authorize All" class="btn btn-medium" onClick="javascript:actionSetter('reauthorize_all');"/> 
+                                        <input type="submit"  id="action_disburse" value="Disburse" class="btn btn-medium" onClick="javascript:actionSetter('capture');"/> 
+                                        <span id="action_linebreak" ><br><br></span>
+                                        <input type="submit"  id="action_force_disburse" value="Force Disburse" disabled class="btn-medium-disabled" onClick="javascript:actionSetter('force_disburse');"/>
+                                        <input type="submit" id="action_remove_failed"  value="Remove Failed" disabled class="btn-medium-disabled" onClick="javascript:actionSetter('remove_declined');"/>                                      
+EOM
+    }
+    
+  elsif($already_authorized < $pledge_count){
+        $trailfor = &Launchh::last_application_fee($account_id, $element_id);
+        $str.=<<EOM;
+                     <div id="application_fee_status"><p>The Default Collection FEE is 5%. Adjust below if you want</p></div>
+                    <div class="form-body clearfix">
+                        <form onsubmit="return goThroughPayment();">
+                            <div class="form-row">
+                             <div class="form-controls">     
+                                <div id="disburse_action_status">
+                                    <span id="application_fee_span"><input class="field" type="number" id="custom-disburse-amount" placeholder="$trailfor" value="$trailfor" min="0.00"  max="$trailfor" step="0.50"/>&nbsp;\%</span><br><br>
+                                    <input type="submit" id="action_authorize" value="Authorize" disabled class="btn-medium-disabled" onClick="javascript:actionSetter('authorize');"/>
+                                    <input type="submit"  id="action_reauthorize" value="Re-Authorize"  class="btn btn-medium" onClick="javascript:actionSetter('reauthorize');"/> 
+                                    <input type="submit"  id="action_reauthorize_all" value="Re-Authorize All" class="btn btn-medium" onClick="javascript:actionSetter('reauthorize_all');"/> 
+                                    <input type="submit"  id="action_disburse" value="Disburse" disabled class="btn-medium-disabled" onClick="javascript:actionSetter('capture');"/> 
+                                    <span id="action_linebreak" ><br><br></span>
+                                    <input type="submit"  id="action_force_disburse" value="Force Disburse" class="btn btn-medium" onClick="javascript:actionSetter('force_disburse');"/>
+                                    <input type="submit" id="action_remove_failed" value="Remove Failed"  class="btn btn-medium" onClick="javascript:actionSetter('remove_declined');"/>                                      
+EOM
+    }
+
+    
+    $str.=<<EOM;
+                            </div><!-- /.form-controls -->
+                        </div><!-- /.form-row -->
+                        <div align=right><img src="../images/stripe-powered.jpg" width="120px" height="25px"> </div>                
+                </form>
+                
+            </div><!-- /.form body -->
+EOM
+}
+else{
+    
+    $str.=<<EOM;
+            <div align=center>
+            <p>
+                <font color="#E00">
+                        The User does not yet updated Payment Information. <br>Send a message instead.
+                </font>
+            <br>
+            <br>
+            <br>
+                    <a href="../ajax/send-message?uname=$username&from=admin" class="btn btn-large modal-trigger">message</a> 
+             </p>       
+             </div>
+            <br>
+EOM
+
+}
+
+
+$str .= << "EOM";
+		</div><!-- /.form form-profile -->
+EOM
+
+my $approve_or_terminate = "Terminate $element_name";
+my $fund_ready_or_not = "Release Fund for $element_name";
+my $authorize_captured = "authorize";
+$authorize_captured = "capture" if($already_authorized);
+
+   $str .= << "EOM";
+   
+          </div>
+		<section class="timer">
+              <form action="/challenge" method="post">
+					$Launchh::HIDDEN
+					<input type="hidden" name="stage" value="2">
+					<input type="hidden" name="mode" value="list">
+					<input type="hidden" name="disbursed" id="disbursed" value="0">
+					<input type="hidden" name="action" id="action" value="$authorize_captured">
+					<input type="hidden" name="element_id" id="element_id" value="$element_id">
+                    <input type="hidden" name="account_id" id="account_id" value="$account_id">
+                
+			<h2>PROGRESS on $element_name</h2>
+			<div class="timer-track"  title='$toolTipHead'><span style="width:$fund_percentage\%"></span></div>
+            $fund_percentage\% Raised of Total \$$Launchh::element->{'element_amount'}
+            <br><br>
+
+			<h2>OVERALL PROGRESS</h2>
+			<div class="timer-track" span style="width:$fund_percentage_total\%"></span></div>
+            $fund_percentage_total\% Raised of Total \$$fund_limit
+    </form>        
+	</section>        
+    </section>
+    
+    <script>
+    
+                function actionSetter(mode){
+                     \$("#action").val(mode);
+                     //alert( \$("#action").val());
+                }
+                function goThroughPayment(){        
+                    if(\$("#disbursed").val() == 1){
+                        alert("Already disbursed fund for this campaign!!");
+                        return false;
+                    }
+        
+                 \$.ajax(
+                    {
+                        type: 'GET',
+                        cache: false,
+                        dataType: 'html',                    
+                        url: 'dostripe.php',
+                        data: {aID   :  \$("#account_id").val(),   eID : \$("#element_id").val(),  action:  \$("#action").val(), application_fee:  \$("#custom-disburse-amount").val()},
+                        success: function(data)
+                        {
+                            // alert(data);
+                             if (data && data.error && data.errorno)
+                             {
+                                   // there is an application-level error. Handle it.
+                                   // ...
+                                   return;
+                             }
+                             if(data == 'success_authorized' || data == 'success_authorized_now'){
+                                    alert("All the Funders Card are successfully authorized for this campaign! Please hit the Disburse button to Pay!");
+                                    \$("#action_authorize").addClass('btn-medium-disabled'); \$("#action_authorize").removeClass('btn btn-medium');                   document.getElementById("action_authorize").disabled = true;
+                                    \$("#action_reauthorize").addClass('btn-medium-disabled'); \$("#action_reauthorize").removeClass('btn btn-medium');             document.getElementById("action_reauthorize").disabled = true; 
+                                    \$("#action_reauthorize_all").removeClass('btn-medium-disabled');  \$("#action_reauthorize_all").addClass('btn btn-medium');  document.getElementById("action_reauthorize_all").disabled = false;     
+                                    \$("#action_disburse").removeClass('btn-medium-disabled');   \$("#action_disburse").addClass('btn btn-medium');                    document.getElementById("action_disburse").disabled = false;    
+                                    \$("#action_force_disburse").addClass('btn-medium-disabled'); \$("#action_force_disburse").removeClass('btn btn-medium');    document.getElementById("action_force_disburse").disabled = true;
+                                    \$("#action_remove_failed").addClass('btn-medium-disabled'); \$("#action_remove_failed").removeClass('btn btn-medium');      document.getElementById("action_remove_failed").disabled = true;
+                                    // \$("#disburse_action_status").html('<input class="field" type="number" id="custom-disburse-amount" placeholder="$trailfor" value="$trailfor" min="0.00"  max="$trailfor" step="0.50"/>&nbsp; \% <br><br> <input type="submit" value="Re-Authorize All" class="btn btn-medium" onClick="javascript:alert(1);actionSetter(\"reauthorize_all\");"/> <input type="submit" value="Disburse" class="btn btn-medium" onClick="javascript:actionSetter(\"capture\");"/>');
+                                    getDisbursedStatus();
+                             }
+                             else if(data == 'success_captured'){
+                                    alert("The Entrepreneur is already paid for this Campaign!");
+                             }
+                             else if(data == 'success_captured_now'){
+                                    alert("Successfully Paid the Entrepreneur!");
+                                    \$("#application_fee_status").html('');
+                                    \$("#disburse_action_status").html('<b>Fund has been Disbursed for this campaign</b>');
+                                    getDisbursedStatus();
+                             }
+                             else if(data == 'authfailed'){
+                                    alert("Authorization failed for one or more Funder's Card!");
+                                    \$("#action_authorize").addClass('btn-medium-disabled'); \$("#action_authorize").removeClass('btn btn-medium');                   document.getElementById("action_authorize").disabled = true;
+                                    \$("#action_reauthorize").addClass('btn btn-medium'); \$("#action_reauthorize").removeClass('btn-medium-disabled');             document.getElementById("action_reauthorize").disabled = false; 
+                                    \$("#action_reauthorize_all").addClass('btn btn-medium'); \$("#action_reauthorize_all").removeClass('btn-medium-disabled');    document.getElementById("action_reauthorize_all").disabled = false;     
+                                    \$("#action_disburse").addClass('btn-medium-disabled'); \$("#action_disburse").removeClass('btn btn-medium');                     document.getElementById("action_disburse").disabled = true;    
+                                    \$("#action_force_disburse").addClass('btn btn-medium'); \$("#action_force_disburse").removeClass('btn-medium-disabled');    document.getElementById("action_force_disburse").disabled = false;
+                                    \$("#action_remove_failed").addClass('btn btn-medium'); \$("#action_remove_failed").removeClass('btn-medium-disabled');      document.getElementById("action_remove_failed").disabled = false;
+                                    getDisbursedStatus();
+                             }                         
+                             else if(data == 'removed'){
+                                    alert("The Declined Card Pledge has been removed from Pledge History!");
+                                    getDisbursedStatus();
+                             }
+                             else if(data == 'not_removed'){
+                                    alert("No Pledges with Declined Card!");
+                             }                             
+                             else if(data == 'morphed'){
+                                    alert("Can't process right at this moment!");
+                             }
+                             else if(data == 'error'){
+                                    alert("An error has been occured. Please See Error Log");
+                             }
+                        }
+                    });                 
+              
+                return false;
+    }
+    
+    function getDisbursedStatus(){
+        \$.ajax(
+        {
+            type: 'GET',
+            cache: false,
+            dataType: 'html',                    
+            url: 'disburse_status.php',
+            data: {aID   :  \$("#account_id").val(),   eID : \$("#element_id").val() },
+            success: function(data)
+            {
+                 // alert(data);
+                 if (data && data.error && data.errorno)
+                 {
+                       alert ("some error");
+                       return;
+                 }
+                \$("#disbursed_status").html(data);
+                // alert(\$("#disbursed_status").html()); 
+            }
+        });   
+     }
+        
+      \$(document).ready(function()
+        {
+            getDisbursedStatus();
+        });
+    </script>
+
+EOM
+
+return $str;
+
+}
+
+sub string_shorten 
+{
+	my $text = shift;
+	my $limit = shift;
+	my $linebreak = shift;
+    
+    my $tmp = substr($text,0,$limit);
+	#$tmp =~ s/\s+\w*$//g;	
+    $tmp =~ s/^\s+//;
+    $tmp =~ s/\s+$//;
+    
+	$text = $tmp;
+    
+    if($limit > $linebreak){
+        my $textlength = length($text);
+        
+        if( $textlength < ($limit - 10))
+        {
+            my $inx = 0; 
+            
+            $inx = floor ($textlength / $linebreak) * $linebreak;
+            while($inx < $limit) {
+                $text .= "<br>";
+                $inx = $inx + $linebreak;
+            }
+        }
+    }
+	return $text;
+}
+
+
+sub trim
+{
+    my $str = shift;
+    
+    $str =~ s/^\s+//;
+    $str =~ s/\s+$//;
+    
+    return $str;
+}  
+
+sub print_header{
+   my $header = &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+   $header =~ s/XXXTITLEXXX/USER PROFILE/is;
+   
+    if( $pmode ne '' ){
+        $header =~ s/"dashboard\?/"dashboard\?pmode=$pmode\&/isg;   
+    }
+   print $header;
+}

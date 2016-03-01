@@ -1,0 +1,408 @@
+#!/usr/bin/perl
+
+#use lib '../../siviacademy.com/cgi-bin';
+
+use lib 'cgi-bin';
+use Launchh;
+use strict;
+use Data::Dumper;
+use POSIX qw(floor);
+use POSIX qw(ceil);
+    
+#$Launchh::HFILE = "empty-ll2.html";
+
+
+my $s_exp = $Launchh::_query->param('s_exp');
+my $s_school = $Launchh::_query->param('s_school');
+my $s_speciality = $Launchh::_query->param('s_speciality');
+my $s_skill = $Launchh::_query->param('s_skill');
+my $s_location = $Launchh::_query->param('s_location');
+my $s_seeking = $Launchh::_query->param('s_seeking');
+my $loadindex = $Launchh::_query->param('loadindex');
+my $pmode = $Launchh::_query->param('pmode');
+
+my $loadlimit = $Launchh::_query->param('loadlimit') ;
+my $exclude_uname = $Launchh::_query->param('showmore') || 0;
+my $idea_profile = $Launchh::_query->param('idea_profile');
+
+$pmode = 'launchleader' if($pmode ne '');
+$loadlimit = $loadlimit * 1;
+$loadindex = $loadindex * 1;
+
+$loadlimit = 3 if(!$loadlimit);
+
+print $Launchh::_query->header();
+#print_header(); # &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+print html_discover();
+#print &Launchh::html_footer($Launchh::HFILE,$Launchh::HSTR);
+
+&Launchh::clean_exit();
+
+
+sub html_discover
+{
+#=begin
+	my $update_str = "no-data";
+	my $account_filtering_str = " AND account_username != '$exclude_uname' AND account_verified = '1' AND account_partnercrumb = '$pmode'";
+
+        ## if launchleader login, then do not do any account filtering and show all profiles/ideas from partners.
+        if ($pmode  eq 'launchleader'){
+            $account_filtering_str = " AND account_username != '$exclude_uname' AND account_verified = '1' ";
+        }
+
+	#$account_filtering_str = " AND account_id = '29' ";
+	my $account_status = 80001;
+	my $project_status = 80002;
+    my $incomplete_status = 79999; 
+    my $campaign_wpi_status = 80005;
+    
+    my $idea_profile_status = $project_status;
+    $idea_profile_status = $incomplete_status if(!$idea_profile);
+    
+
+    my $page_url = 'http';
+    if ($ENV{HTTPS} && lc $ENV{HTTPS} ne "off") {
+    $page_url .= "s";
+    }
+    $page_url .= "://";
+    $page_url .= $ENV{SERVER_NAME};
+        
+    my $idea_profile_search_sql = "";
+    
+    $idea_profile_search_sql = "WHERE account_username IS NOT NULL AND account_status IN($project_status,$campaign_wpi_status) $account_filtering_str ORDER BY account_id DESC LIMIT $loadindex, $loadlimit" if($idea_profile==1);
+    $idea_profile_search_sql = "WHERE account_username IS NOT NULL AND account_status = $incomplete_status $account_filtering_str ORDER BY account_id DESC LIMIT $loadindex, $loadlimit" if($idea_profile==0);
+    
+    print STDERR "\n[$idea_profile] $idea_profile_search_sql\n";
+
+	&Launchh::select_accounts($idea_profile_search_sql);
+	while(&Launchh::next_account())
+    {
+        if($update_str eq 'no-data') { $update_str = ""; }
+		my @detailArr;
+        
+        #$update_str = "" if($update_str eq 'no-data');
+		my $not_idea_str = "";
+		#$not_idea_str = "AND detail_name NOT LIKE 'Idea-%'";
+
+		&Launchh::select_details("WHERE detail_type=2 AND detail_status=1 $not_idea_str ORDER BY CAST(detail_note AS DECIMAL(5,1))");
+		while(&Launchh::next_detail())
+		{
+		   &Launchh::select_question($Launchh::detail->{'detail_desc'});
+		   
+		   #my $question_limit = $Launchh::question->{'question_limit'};
+		   #my $detail_note = $Launchh::detail->{'detail_note'}  ;
+
+		   #select user's previous answer, if any
+		   &Launchh::select_account_details("WHERE account_id=$Launchh::account->{'account_id'} AND detail_id=$Launchh::detail->{'detail_id'} AND account_detail_status=1 ORDER BY account_detail_id desc LIMIT 1");
+		   &Launchh::next_account_detail();
+		   
+		   my $detail_value = $Launchh::account_detail->{'account_detail_desc'};
+		   my $detail_id = $Launchh::detail->{'detail_id'};
+		   
+		   $detailArr[$detail_id] = $detail_value;
+		}
+
+		my $uid = $Launchh::account->{'account_id'};
+		my $first_name = $Launchh::account->{'account_name_first'};
+		my $last_name = $Launchh::account->{'account_name_last'}; 
+		my $full_name = $first_name." ".$last_name;
+		my $headline = $Launchh::account->{'account_desc'};
+		my $username = $Launchh::account->{'account_username'}; 
+		my $location = $Launchh::account->{'account_phone'}; 
+        my $fund_limit = 0 ;
+		
+        #$full_name = " " if(trim($full_name) eq '');
+        $location = "&nbsp;" if(trim($location) eq '');
+        $headline = "&nbsp;" if(trim($headline) eq '');
+        
+        #my $len1 = length($headline);
+        
+		&Launchh::select_element_details("WHERE account_id = $Launchh::account->{'account_id'} AND element_detail_status = '1'" );
+		while(&Launchh::next_element_detail()){
+			&Launchh::select_elements("WHERE element_status=1 AND element.element_id = $Launchh::element_detail->{'element_id'}");
+			&Launchh::next_element();
+			if($Launchh::element->{'element_id'} eq '') {
+				next;
+			}
+	        $fund_limit += $Launchh::element->{'element_amount'};
+		}
+		
+		my $current_fund = 0 ;
+		#$current_fund = ceil(&Launchh::total_funded("WHERE account_id = $Launchh::account->{'account_id'}" ));       
+        $current_fund = ceil(&Launchh::total_funded("WHERE funding_details.account_id = $Launchh::account->{'account_id'}" ));
+        
+        
+        my $fund_percentage = 0;
+		$fund_percentage = ceil ($current_fund / $fund_limit  * 100)  if($fund_limit > 0);
+
+		my $summary = $detailArr[27];
+		my $profile_photo= $detailArr[25];
+		my $college = $detailArr[16];
+		my $experience= $detailArr[43];
+		my $seeking= $detailArr[24];
+		my $skill1= $detailArr[17];
+		my $skill2= $detailArr[22];
+		my $skill3= $detailArr[23];
+		my $speciality= $detailArr[12];
+        my $experience= $detailArr[43];
+        my $facebook= $detailArr[46];
+        my $twitter= $detailArr[47];
+        
+        my $summary_length_limit = 200;
+        my $headline_length_limit  = 70;
+        
+
+        my $twitter_name = '';
+        if( $twitter =~/.*twitter.com\/(.*?$)/){
+            $twitter_name = $1;
+        }
+        #$twitter_name = $twitter if($twitter_name eq '');
+         if($twitter_name eq '' && $facebook =~/.*twitter.com\/(.*?$)/){
+              $twitter_name = $1;
+         }
+            
+		if($profile_photo eq ''){
+			$profile_photo = "images/launch-leader-default.jpg";
+			$profile_photo = "images/launchleader-human-avatar-discover.png";
+        }
+		else{
+			$profile_photo = "uploads/$uid/images/$profile_photo";
+		}
+		
+		if($s_exp ne '' && $experience !~ m/$s_exp/i) {
+			next;
+		}
+		if($s_school ne '' && $college !~ m/$s_school/i) {
+
+			next;
+		}
+		if($s_speciality ne '' && $speciality !~ m/$s_speciality/i) {
+			next;
+		}
+		if($s_skill ne '' && ( $s_skill !~ m/$skill1/i &&  $s_skill !~ m/$skill2/i &&  $s_skill !~ m/$skill3/i)) {
+				$update_str .= << "EOM";
+				<!-- CAME [$college]-->
+EOM
+			next;
+		}
+		if($s_location ne '' && $location !~ m/$s_location/i) {
+			next;
+		}
+		if($s_seeking ne '' && $seeking !~ m/$s_seeking/i) {
+			next;
+		}
+		
+		#if($profile_photo 
+		#<img src="uploads/$Launchh::uid/images/$profile_photo" alt="" />    
+        my $trail = '';
+        if(length($summary) > $summary_length_limit)
+        {
+            #$trail = '...';
+        }        
+        
+        my $trail_headline = '';
+        if(length($headline) > $headline_length_limit)
+        {
+            #$trail_headline = '...';
+        }
+        $headline = string_shorten($headline, $headline_length_limit, 35);
+
+		#$summary = summary_short($summary, 185);
+        
+        my $profile_str = '';
+        $profile_str .= "?pmode=$pmode" if($pmode ne '');        
+        
+		my $fb_app_id = $Launchh::FB_APP_ID;
+		my $page_url_to_share = $page_url."/profile/$username";
+
+        my $fund_percentage_str = "$fund_percentage% Raised";
+        $fund_percentage_str = "<font color='\#2dcb71'>Fund Now To Start</font>" if(!$fund_percentage);
+    
+        $headline = string_shorten($headline, $headline_length_limit, 40);
+    
+        $update_str .= << "EOM";
+                                <li class="update">
+								<div class="update-image">
+									<a href="profile/$username$profile_str">
+                                                    <div class="discover-image-container" style='background-image: url(../$profile_photo);'></div>
+                                    		</a>
+								</div><!-- /.update-image -->
+						
+								<div class="update-content">
+									<h3>
+										<a href="profile/$username$profile_str">$full_name</a>
+									</h3>									
+                                    
+									<h4>$headline $trail_headline</h4> 
+                                    
+									<span>
+										<i class="ico ico-location"></i>$location
+									</span>
+						
+                                              <section>
+                                                <p>
+                                                        $summary $trail
+                                                  </p>                                                  
+                                            <div class="fadeout"></div>
+                                            </section>
+                                            <div class="update-share">
+                                                <ul>
+                                                    <li>
+                                                            <a href="javascript:popupwindow(\'https://www.facebook.com/sharer/sharer.php?app_id=$fb_app_id&sdk=joey&u=$page_url_to_share&display=popup&ref=plugin\',\'title\',\'650\',\'350\')" class="btn btn-fb-share"></a> 
+                                                    </li>
+                                                    
+                                                    <li>
+                                                            <a href="javascript:popupwindow(\'https://twitter.com/intent/tweet?text=Join me supporting %23$twitter_name by $first_name $last_name&url=$page_url_to_share&via=sivicorp\',\'title\',\'650\',\'350\')" class="btn btn-tw-tweet"></a>
+                                                    </li>                                            
+                                                    <li>
+                                                                       <a href="../social/get_short_url?tsu=$username"  class="btn btn-link-share modal-trigger"></a>
+                                                    </li>								
+                                                </ul>
+                                    </div><!-- /.update-share -->
+                                    
+EOM
+    if($idea_profile){
+                $update_str .= << "EOM";
+									<div class="update-funding">
+										<div class="funding-progress">
+											<span style="width: $fund_percentage%;"></span>
+										</div><!-- /.funding-progress -->
+										
+										<span class="funding-start">$fund_percentage% Raised</span>
+										
+										<span class="funding-end">\$$fund_limit</span>
+									</div><!-- /.update-funding -->
+EOM
+    }
+                                    
+                $update_str .= << "EOM";                                    
+                                        </div><!-- /.update-content -->
+                                        <!--
+								<div class="update-actions">
+									<a href="profile/$username" class="btn btn-medium">View Profile</a>
+								</div><!-- /.update-actions -->
+							</li><!-- /.update -->
+                            
+EOM
+
+	}
+    
+
+#= cut
+# exit;
+# <INPUT TYPE="HIDDEN" NAME="account_id" VALUE="$Launchh::uid">
+
+=begin
+	uid
+	profile photo
+	first name
+	last name
+	username
+	headline
+	location
+	summary short
+	funded count
+	total fund amount
+	fb share 
+	tw share
+	funded amount 
+=cut
+
+return $update_str;
+}
+
+
+sub print_header
+{
+   my $header = &Launchh::html_header($Launchh::HFILE,$Launchh::HSTR);
+#$user_header_str = " of ".$Launchh::account->{'account_name_first'} if($Launchh::account->{'account_name_first'} ne '');
+
+   $header =~ s/XXXTITLEXXX/USER PROFILE/is;
+   my $headerold .= << "EOM";
+
+		<aside class="sidebar">
+			<ul class="widgets">
+				<li class="widget widget-nav">
+					<ul>
+						<li>
+							<a href="/dash?$Launchh::HSTR">
+								<i class="icon-desktop"></i> Dashboard
+							</a>
+						</li>
+		
+						<li class="current">
+							<a href="/account?$Launchh::HSTR">
+								<i class="icon-app"></i> Profile
+							</a>
+						</li>
+		
+						<li>
+							<a href="/inbox?$Launchh::HSTR">
+								<i class="icon-mail"></i> Inbox 
+							</a>
+		
+							<!--ul>
+								<li>
+									<a href="/inbox?$Launchh::HSTR">
+										<i class="icon-mail-arrow-down"></i> Inbox
+									</a>
+								</li>
+		
+								<li>
+									<a href="/inbox?$Launchh::HSTR">
+										<i class="icon-mail-arrow-up"></i> Sent
+									</a>
+								</li>
+							</ul-->
+						</li>
+					</ul>
+				</li><!-- /.widget widget-nav -->
+			</ul><!-- /.widgets -->
+		</aside><!-- /.sidebar -->
+        
+
+EOM
+
+   print $header;
+}
+
+
+sub string_shorten 
+{
+	my $text = shift;
+	my $limit = shift;
+	my $linebreak = shift;
+    
+    my $tmp = substr($text,0,$limit);
+	#$tmp =~ s/\s+\w*$//g;	
+    $tmp =~ s/^\s+//;
+    $tmp =~ s/\s+$//;
+    
+	$text = $tmp;
+    
+    my $textlength = length($text);
+    
+    if( $textlength < ($limit - 10))
+    {
+        my $inx = 0; 
+        
+        $inx = floor ($textlength / $linebreak) * $linebreak;
+        while($inx < $limit) {
+            $text .= "<br>";
+            $inx = $inx + $linebreak;
+        }
+    }
+	
+	return $text;
+}
+
+
+sub trim
+{
+    my $str = shift;
+    
+    $str =~ s/^\s+//;
+    $str =~ s/\s+$//;
+    
+    return $str;
+}
